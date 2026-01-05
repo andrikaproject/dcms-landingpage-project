@@ -4,6 +4,7 @@ import { HeroPattern } from '../components/HeroPattern';
 import { SectionTwo } from '../components/SectionTwo';
 import { SectionThree } from '../components/SectionThree';
 import { SectionFour } from '../components/SectionFour';
+import { FeedbackSection } from '../components/FeedbackSection';
 
 
 export default function LandingPage() {
@@ -76,6 +77,7 @@ export default function LandingPage() {
                   src="/images/trading-card-1.jpg"
                   alt="Trading Signal 1"
                   fill
+                  loading="lazy"
                   className="object-cover"
                 />
               </div>
@@ -88,6 +90,7 @@ export default function LandingPage() {
                   src="/images/trading-card-2.jpg"
                   alt="Trading Signal 2"
                   fill
+                  loading="lazy"
                   className="object-cover"
                 />
               </div>
@@ -100,6 +103,7 @@ export default function LandingPage() {
                   src="/images/trading-card-3.png"
                   alt="Trading Signal 3"
                   fill
+                  loading="lazy"
                   className="object-cover"
                 />
               </div>
@@ -110,6 +114,7 @@ export default function LandingPage() {
         <SectionTwo />
         <SectionThree />
         <SectionFour />
+        <FeedbackSection />
 
 
       </main>

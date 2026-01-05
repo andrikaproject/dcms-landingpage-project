@@ -38,6 +38,7 @@ export function SectionThree() {
                                 <img
                                     src="/images/insight01.png"
                                     alt="Market Analysis"
+                                    loading="lazy"
                                     className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500"
                                 />
                             </div>
@@ -62,6 +63,7 @@ export function SectionThree() {
                                 <img
                                     src="/images/insight02.png"
                                     alt="Market Analysis"
+                                    loading="lazy"
                                     className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500"
                                 />
                             </div>
@@ -80,7 +82,7 @@ export function SectionThree() {
                             </p>
                         </div>
                         <div className="mt-2 -mb-6 md:-mb-12 -mx-6 relative group-hover:scale-[1.02] transition-transform duration-500 px-[24px]">
-                            <img src="/images/insight03.png" alt="Signal Group" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" />
+                            <img src="/images/insight03.png" alt="Signal Group" loading="lazy" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" />
                         </div>
                     </div>
 
@@ -103,6 +105,7 @@ export function SectionThree() {
                                 <img
                                     src="/images/insight04-01.png"
                                     alt="Insight Tip 1"
+                                    loading="lazy"
                                     className="rounded-[1.5rem] border border-white/10 shadow-2xl w-full h-auto opacity-90 group-hover:opacity-100"
                                 />
                             </div>
@@ -112,6 +115,7 @@ export function SectionThree() {
                                 <img
                                     src="/images/insight04-02.png"
                                     alt="Insight Tip 2"
+                                    loading="lazy"
                                     className="rounded-[1.5rem] border border-white/10 shadow-2xl w-full h-auto"
                                 />
                             </div>
@@ -121,6 +125,7 @@ export function SectionThree() {
                                 <img
                                     src="/images/insight04-03.png"
                                     alt="Insight Tip 3"
+                                    loading="lazy"
                                     className="rounded-[1.5rem] border border-white/10 shadow-2xl w-full h-auto opacity-90 group-hover:opacity-100"
                                 />
                             </div>

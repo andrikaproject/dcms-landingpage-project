@@ -1,4 +1,5 @@
 import React from 'react';
+import { GalleryCard } from './GalleryCard';
 
 export function SectionFour() {
     return (
@@ -12,6 +13,7 @@ export function SectionFour() {
                     <img
                         src="/images/logo-dcms.svg"
                         alt="Logo DCMS"
+                        loading="lazy"
                         className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500"
                     />
 
@@ -42,127 +44,43 @@ export function SectionFour() {
                 </div>
             </div>
 
-            {/* Gallery Grid - Placeholder untuk nanti diedit */}
+            {/* Gallery Grid - Menggunakan GalleryCard Component dengan style macOS */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Placeholder Card 1 */}
-                <div
-                    className="rounded-3xl p-6 flex flex-col justify-center items-center min-h-[300px] group hover:scale-[1.02] transition-transform duration-300"
-                    style={{
-                        background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)',
-                        backdropFilter: 'blur(20px)',
-                        border: '1px solid rgba(54, 54, 54, 0.43)'
-                    }}
-                >
-                    <div className="text-center">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
-                            <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <p className="text-gray-500 text-sm">Gallery Item 1</p>
-                        <p className="text-gray-600 text-xs mt-2">Akan diedit nanti</p>
-                    </div>
-                </div>
+                {/* Card 1 - Short */}
+                <GalleryCard
+                    label="Short"
+                // image="/images/gallery-1.jpg" // Uncomment dan ganti dengan path gambar Anda
+                />
 
-                {/* Placeholder Card 2 */}
-                <div
-                    className="rounded-3xl p-6 flex flex-col justify-center items-center min-h-[300px] group hover:scale-[1.02] transition-transform duration-300"
-                    style={{
-                        background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)',
-                        backdropFilter: 'blur(20px)',
-                        border: '1px solid rgba(54, 54, 54, 0.43)'
-                    }}
-                >
-                    <div className="text-center">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
-                            <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <p className="text-gray-500 text-sm">Gallery Item 2</p>
-                        <p className="text-gray-600 text-xs mt-2">Akan diedit nanti</p>
-                    </div>
-                </div>
+                {/* Card 2 - Long */}
+                <GalleryCard
+                    label="Long"
+                // image="/images/gallery-2.jpg"
+                />
 
-                {/* Placeholder Card 3 */}
-                <div
-                    className="rounded-3xl p-6 flex flex-col justify-center items-center min-h-[300px] group hover:scale-[1.02] transition-transform duration-300"
-                    style={{
-                        background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)',
-                        backdropFilter: 'blur(20px)',
-                        border: '1px solid rgba(54, 54, 54, 0.43)'
-                    }}
-                >
-                    <div className="text-center">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
-                            <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <p className="text-gray-500 text-sm">Gallery Item 3</p>
-                        <p className="text-gray-600 text-xs mt-2">Akan diedit nanti</p>
-                    </div>
-                </div>
+                {/* Card 3 - Short */}
+                <GalleryCard
+                    label="Short"
+                // image="/images/gallery-3.jpg"
+                />
 
-                {/* Placeholder Card 4 */}
-                <div
-                    className="rounded-3xl p-6 flex flex-col justify-center items-center min-h-[300px] group hover:scale-[1.02] transition-transform duration-300"
-                    style={{
-                        background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)',
-                        backdropFilter: 'blur(20px)',
-                        border: '1px solid rgba(54, 54, 54, 0.43)'
-                    }}
-                >
-                    <div className="text-center">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
-                            <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <p className="text-gray-500 text-sm">Gallery Item 4</p>
-                        <p className="text-gray-600 text-xs mt-2">Akan diedit nanti</p>
-                    </div>
-                </div>
+                {/* Card 4 - Long */}
+                <GalleryCard
+                    label="Long"
+                // image="/images/gallery-4.jpg"
+                />
 
-                {/* Placeholder Card 5 */}
-                <div
-                    className="rounded-3xl p-6 flex flex-col justify-center items-center min-h-[300px] group hover:scale-[1.02] transition-transform duration-300"
-                    style={{
-                        background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)',
-                        backdropFilter: 'blur(20px)',
-                        border: '1px solid rgba(54, 54, 54, 0.43)'
-                    }}
-                >
-                    <div className="text-center">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
-                            <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <p className="text-gray-500 text-sm">Gallery Item 5</p>
-                        <p className="text-gray-600 text-xs mt-2">Akan diedit nanti</p>
-                    </div>
-                </div>
+                {/* Card 5 - Short */}
+                <GalleryCard
+                    label="Short"
+                // image="/images/gallery-5.jpg"
+                />
 
-                {/* Placeholder Card 6 */}
-                <div
-                    className="rounded-3xl p-6 flex flex-col justify-center items-center min-h-[300px] group hover:scale-[1.02] transition-transform duration-300"
-                    style={{
-                        background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)',
-                        backdropFilter: 'blur(20px)',
-                        border: '1px solid rgba(54, 54, 54, 0.43)'
-                    }}
-                >
-                    <div className="text-center">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
-                            <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <p className="text-gray-500 text-sm">Gallery Item 6</p>
-                        <p className="text-gray-600 text-xs mt-2">Akan diedit nanti</p>
-                    </div>
-                </div>
+                {/* Card 6 - Long */}
+                <GalleryCard
+                    label="Long"
+                // image="/images/gallery-6.jpg"
+                />
             </div>
         </section>
     );
