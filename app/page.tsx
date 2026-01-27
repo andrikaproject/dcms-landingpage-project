@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { HeroPattern } from '../components/HeroPattern';
@@ -19,7 +21,7 @@ export default function LandingPage() {
       {/* Navbar / Header */}
       <nav className="relative z-10 pt-8 pb-0">
         <div className="px-6 py-2 rounded-full border border-white/5 bg-white/5 backdrop-blur-sm shadow-2xl">
-          <span className="text-sm font-medium tracking-widest text-gray-400 uppercase">
+          <span className="text-sm font-medium tracking-widest text-gray-400 uppercase" style={{ fontFamily: 'Nebulica, serif' }}>
             DCMS • Community
           </span>
         </div>
@@ -49,22 +51,48 @@ export default function LandingPage() {
               Micin Saham
             </h1>
 
-            <p className="text-gray-400 text-lg sm:text-xl md:text-2xl lg:text-3xl font-light max-w-3xl leading-relaxed">
+            <p className="text-gray-400 text-lg sm:text-xl md:text-2xl lg:text-3xl font-light max-w-3xl leading-relaxed" style={{ fontFamily: 'Chakra Petch, serif' }}>
               Tempat para trader yang sadar risiko, ego dan realita market. Fokus pada proses, disiplin, dan bertahan lama.
             </p>
 
-            {/* CTA Button (Optional based on image, but kept for UX) */}
-            <div className="mt-12 group relative inline-block">
-              <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-violet-600 rounded-full blur opacity-20 group-hover:opacity-50 transition duration-500"></div>
-              <Link
-                href="/register"
-                className="relative flex items-center bg-[#1A1C20] text-gray-200 px-8 py-3 rounded-full border border-white/10 hover:border-white/20 hover:text-white transition-all duration-300"
-              >
-                <span className="mr-2 font-medium">Kenali Komunitasnya Dulu</span>
-                <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-              </Link>
+            {/* CTA Buttons */}
+            <div className="mt-12 flex flex-col sm:flex-row gap-4 items-center justify-center">
+              {/* Kenali Komunitas Dulu Button - Smooth Scroll */}
+              <div className="group relative inline-block">
+                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-violet-600 rounded-full blur opacity-20 group-hover:opacity-50 transition duration-500"></div>
+                <a
+                  href="#community-section"
+                  className="relative flex items-center bg-[#1A1C20] text-gray-200 px-8 py-3 rounded-full border border-white/10 hover:border-white/20 hover:text-white transition-all duration-300"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('community-section')?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start'
+                    });
+                  }}
+                >
+                  <span className="mr-2 font-medium">Kenali Komunitasnya Dulu</span>
+                  <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </a>
+              </div>
+
+              {/* Join Sekarang Button - Discord Link */}
+              <div className="group relative inline-block">
+                <div className="absolute -inset-1 bg-gradient-to-r from-[#B7FB5B] to-green-500 rounded-full blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
+                <Link
+                  href="https://discord.gg/dcms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="relative flex items-center bg-[#B7FB5B] text-[#111315] px-8 py-3 rounded-full border border-[#B7FB5B]/20 hover:bg-[#a8ec4c] hover:scale-105 transition-all duration-300 font-semibold"
+                >
+                  <span className="mr-2">Join Sekarang</span>
+                  <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </Link>
+              </div>
             </div>
           </div>
 

@@ -24,9 +24,14 @@ export function GalleryCard({ image, label = "Short" }: GalleryCardProps) {
                     <div className="w-3 h-3 rounded-full bg-[#27c93f]"></div>
                 </div>
 
-                {/* Label Button */}
+                {/* Label Button - Dynamic color based on type */}
                 <div className="bg-[#3a3a3a] hover:bg-[#4a4a4a] transition-colors px-4 py-1.5 rounded-lg">
-                    <span className="text-[#ff5f56] font-semibold text-sm">
+                    <span
+                        className={`font-semibold text-sm ${label.toLowerCase() === 'short'
+                                ? 'text-[#ff5f56]'
+                                : 'text-[#27c93f]'
+                            }`}
+                    >
                         {label}
                     </span>
                 </div>
@@ -38,17 +43,19 @@ export function GalleryCard({ image, label = "Short" }: GalleryCardProps) {
                     typeof image === 'string' ? (
                         <img
                             src={image}
-                            alt="Gallery item"
+                            alt={label}
                             loading="lazy"
                             className="w-full h-full object-cover"
+                            style={{ objectPosition: 'center 22%' }}
                         />
                     ) : (
                         <Image
                             src={image}
-                            alt="Gallery item"
+                            alt={label}
                             fill
                             loading="lazy"
                             className="object-cover"
+                            style={{ objectPosition: 'center 60%' }}
                         />
                     )
                 ) : (

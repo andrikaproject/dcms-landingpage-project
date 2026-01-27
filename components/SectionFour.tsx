@@ -38,7 +38,8 @@ export function SectionFour() {
 
                 {/* Right Side - Description */}
                 <div className="w-full md:max-w-xs md:flex-shrink-0">
-                    <p className="text-gray-400 text-xs md:text-sm leading-relaxed text-left">
+                    <p className="text-gray-400 text-xs md:text-sm leading-relaxed text-left"
+                        style={{ fontFamily: 'Chakra Petch, serif' }}>
                         Semua Galeri PnL ini di dapatkan dari member yang mau berusaha sendiri dan menerapkan hasil ilmu yang di dapat dari group DCMS
                     </p>
                 </div>
@@ -48,38 +49,38 @@ export function SectionFour() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Card 1 - Short */}
                 <GalleryCard
-                    label="Short"
-                // image="/images/gallery-1.jpg" // Uncomment dan ganti dengan path gambar Anda
+                    label="Long"
+                    image="/images/PnL01.png" // Uncomment dan ganti dengan path gambar Anda
                 />
 
                 {/* Card 2 - Long */}
                 <GalleryCard
                     label="Long"
-                // image="/images/gallery-2.jpg"
+                    image="/images/PnL02.png"
                 />
 
                 {/* Card 3 - Short */}
                 <GalleryCard
-                    label="Short"
-                // image="/images/gallery-3.jpg"
+                    label="Long"
+                    image="/images/PnL03.png"
                 />
 
                 {/* Card 4 - Long */}
                 <GalleryCard
                     label="Long"
-                // image="/images/gallery-4.jpg"
+                    image="/images/PnL04.jpg"
                 />
 
                 {/* Card 5 - Short */}
                 <GalleryCard
-                    label="Short"
-                // image="/images/gallery-5.jpg"
+                    label="Long"
+                    image="/images/PnL05.png"
                 />
 
                 {/* Card 6 - Long */}
                 <GalleryCard
                     label="Long"
-                // image="/images/gallery-6.jpg"
+                    image="/images/PnL06.png"
                 />
             </div>
         </section>

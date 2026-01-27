@@ -4,7 +4,7 @@ import { Button } from "@/components/Button"; // Sesuaikan path jika perlu
 
 export function SectionThree() {
     return (
-        <section className="py-12 bg-brand-dark ">
+        <section id="community-section" className="py-12 bg-brand-dark ">
             <div className="w-full max-w-[1600px] mx-auto py-6 pb-0">
                 {/* Header Section */}
                 <div className="mb-12">
