@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    devIndicators: false,
+    swcMinify: true,
+    compress: true,
+    compiler: {
+        removeConsole: process.env.NODE_ENV === 'production',
+    },
     images: {
         remotePatterns: [
             {
@@ -12,4 +18,5 @@ const nextConfig = {
         unoptimized: true, // Disable optimization for API-served images
     },
 };
+
 export default nextConfig;

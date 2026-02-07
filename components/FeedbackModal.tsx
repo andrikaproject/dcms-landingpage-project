@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface FeedbackModalProps {
     isOpen: boolean;
@@ -8,7 +8,7 @@ interface FeedbackModalProps {
     memberSince: string;
     feedback: string;
     fullFeedback?: string;
-    telegramId: string;
+    discordId: string;
     username: string;
     displayName: string;
     profileImage?: string;
@@ -20,14 +20,15 @@ export function FeedbackModal({
     memberSince,
     feedback,
     fullFeedback,
-    telegramId,
+    discordId,
     username,
     displayName,
     profileImage
 }: FeedbackModalProps) {
     const [isClosing, setIsClosing] = useState(false);
-    const [dragStartY, setDragStartY] = useState(0);
-    const [dragOffset, setDragOffset] = useState(0);
+    const modalRef = useRef<HTMLDivElement>(null);
+    const dragStartY = useRef(0);
+    const currentDragOffset = useRef(0);
     const [isDragging, setIsDragging] = useState(false);
 
     const handleClose = () => {
@@ -39,30 +40,43 @@ export function FeedbackModal({
     };
 
     const handleDragStart = (clientY: number) => {
-        setDragStartY(clientY);
+        dragStartY.current = clientY;
         setIsDragging(true);
     };
 
     const handleDragMove = (clientY: number) => {
-        if (!isDragging) return;
-        const offset = clientY - dragStartY;
+        if (!dragStartY.current || !modalRef.current) return;
+
+        const offset = clientY - dragStartY.current;
         if (offset > 0) { // Only allow dragging down
-            setDragOffset(offset);
+            currentDragOffset.current = offset;
+            // Direct DOM manipulation for maximum performance
+            modalRef.current.style.transform = `translateY(${offset}px)`;
+            modalRef.current.style.transition = 'none';
         }
     };
 
     const handleDragEnd = () => {
         setIsDragging(false);
-        if (dragOffset > 100) { // If dragged more than 100px, close
+        if (currentDragOffset.current > 100) { // If dragged more than 100px, close
             handleClose();
+        } else if (modalRef.current) {
+            // Spring back if not closed
+            modalRef.current.style.transform = 'translateY(0)';
+            modalRef.current.style.transition = 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
         }
-        setDragOffset(0);
+        dragStartY.current = 0;
+        currentDragOffset.current = 0;
     };
 
-    // Reset closing state when modal opens
+    // Reset styles when modal opens
     useEffect(() => {
         if (isOpen) {
             setIsClosing(false);
+            if (modalRef.current) {
+                modalRef.current.style.transform = 'translateY(0)';
+                modalRef.current.style.transition = 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+            }
         }
     }, [isOpen]);
 
@@ -81,26 +95,30 @@ export function FeedbackModal({
             />
 
             {/* Modal with scale and fade animation */}
-            <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4">
+            <div
+                className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4 cursor-pointer"
+                onClick={handleClose}
+            >
                 <div
-                    className="bg-[#111315] border-t md:border border-[#181D27] rounded-t-3xl md:rounded-2xl max-w-4xl w-full md:max-h-[90vh] h-[85vh] md:h-auto overflow-y-auto md:overflow-hidden relative transition-all duration-300 ease-out"
+                    ref={modalRef}
+                    className="bg-[#111315] border-t md:border border-[#181D27] rounded-t-3xl md:rounded-2xl max-w-4xl w-full md:max-h-[90vh] h-[85vh] md:h-auto overflow-y-auto md:overflow-hidden relative cursor-default"
                     style={{
                         animation: isClosing
                             ? 'modalSlideOut 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                            : 'modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                        transform: isDragging ? `translateY(${dragOffset}px)` : undefined,
-                        transition: isDragging ? 'none' : 'all 0.3s ease-out'
+                            : 'modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
                     }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* Fixed Drag Handle at Top (Mobile Only) */}
                     <div
-                        className="md:hidden absolute top-0 left-0 right-0 z-20 bg-[#1a1a1a] rounded-t-3xl cursor-grab active:cursor-grabbing"
+                        className="md:hidden absolute top-0 left-0 right-0 z-20 bg-[#1a1a1a] rounded-t-3xl cursor-grab active:cursor-grabbing touch-none"
                         onTouchStart={(e) => handleDragStart(e.touches[0].clientY)}
                         onTouchMove={(e) => handleDragMove(e.touches[0].clientY)}
                         onTouchEnd={handleDragEnd}
                         onMouseDown={(e) => handleDragStart(e.clientY)}
-                        onMouseMove={(e) => isDragging && handleDragMove(e.clientY)}
+                        onMouseMove={(e) => {
+                            if (dragStartY.current) handleDragMove(e.clientY);
+                        }}
                         onMouseUp={handleDragEnd}
                         onMouseLeave={handleDragEnd}
                     >
@@ -156,7 +174,7 @@ export function FeedbackModal({
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="text-[#B7FB5B] text-sm font-mono">
-                                                {telegramId}
+                                                {discordId}
                                             </span>
                                         </div>
                                         <p className="text-gray-500 text-sm">
@@ -169,12 +187,12 @@ export function FeedbackModal({
                             {/* Right Side - Profile Image Placeholder (Desktop Only - Clipped) */}
                             <div className="hidden md:flex flex-shrink-0 items-center justify-center ml-8 -mr-24">
                                 {/* Image Container - Clipped by modal overflow */}
-                                <div className="w-64 h-48 rounded-2xl overflow-hidden bg-gray-700 flex items-center justify-center">
+                                <div className="w-64 h-48 rounded-2xl overflow-hidden border border-white/5 flex items-center justify-center">
                                     {profileImage ? (
                                         <img
                                             src={profileImage}
                                             alt={displayName}
-                                            className="w-full h-full object-cover"
+                                            className="w-full h-full object-cover shadow-2xl"
                                         />
                                     ) : (
                                         <span className="text-gray-400 text-sm font-medium">
@@ -187,8 +205,8 @@ export function FeedbackModal({
 
                         {/* Mobile Image - Below Content */}
                         {profileImage && (
-                            <div className="md:hidden mt-6">
-                                <div className="w-full rounded-2xl overflow-hidden bg-gray-700">
+                            <div className="md:hidden mt-6 pb-2">
+                                <div className="w-full rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl">
                                     <img
                                         src={profileImage}
                                         alt={displayName}

@@ -9,13 +9,14 @@ export function SectionFour() {
                 {/* Left Side - Logo & Label */}
                 <div className="flex items-center gap-4 flex-shrink-0 justify-start">
                     {/* Logo Icon */}
-
-                    <img
-                        src="/images/logo-dcms.svg"
-                        alt="Logo DCMS"
-                        loading="lazy"
-                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500"
-                    />
+                    <div className="w-12 h-12 md:w-16 md:h-16 flex-shrink-0">
+                        <img
+                            src="/images/logo-dcms.svg"
+                            alt="Logo DCMS"
+                            loading="lazy"
+                            className="w-full h-full object-contain opacity-80 group-hover:opacity-100 transition-opacity duration-500"
+                        />
+                    </div>
 
                     {/* Label */}
                     <span
@@ -50,37 +51,37 @@ export function SectionFour() {
                 {/* Card 1 - Short */}
                 <GalleryCard
                     label="Long"
-                    image="/images/PnL01.png" // Uncomment dan ganti dengan path gambar Anda
+                    image="/images/PnL01.webp" // Uncomment dan ganti dengan path gambar Anda
                 />
 
                 {/* Card 2 - Long */}
                 <GalleryCard
                     label="Long"
-                    image="/images/PnL02.png"
+                    image="/images/PnL02.webp"
                 />
 
                 {/* Card 3 - Short */}
                 <GalleryCard
                     label="Long"
-                    image="/images/PnL03.png"
+                    image="/images/PnL03.webp"
                 />
 
                 {/* Card 4 - Long */}
                 <GalleryCard
                     label="Long"
-                    image="/images/PnL04.jpg"
+                    image="/images/PnL04.webp"
                 />
 
                 {/* Card 5 - Short */}
                 <GalleryCard
                     label="Long"
-                    image="/images/PnL05.png"
+                    image="/images/PnL05.webp"
                 />
 
                 {/* Card 6 - Long */}
                 <GalleryCard
                     label="Long"
-                    image="/images/PnL06.png"
+                    image="/images/PnL06.webp"
                 />
             </div>
         </section>

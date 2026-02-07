@@ -5,7 +5,7 @@ import React from 'react';
 interface FeedbackCardProps {
     memberSince: string;
     feedback: string;
-    telegramId: string;
+    discordId: string;
     username: string;
     onClick?: () => void;
     // Optional props for future use
@@ -15,7 +15,7 @@ interface FeedbackCardProps {
     rating?: number;
 }
 
-export function FeedbackCard({ memberSince, feedback, telegramId, username, onClick }: FeedbackCardProps) {
+export function FeedbackCard({ memberSince, feedback, discordId, username, onClick }: FeedbackCardProps) {
     return (
         <div
             className="bg-[#111315] border border-[#181D27] rounded-xl p-5 mb-4 hover:border-gray-700 transition-colors duration-300 cursor-pointer"
@@ -48,7 +48,7 @@ export function FeedbackCard({ memberSince, feedback, telegramId, username, onCl
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         <span className="text-[#B7FB5B] text-xs font-mono">
-                            {telegramId}
+                            {discordId}
                         </span>
                     </div>
                     <p className="text-gray-500 text-xs truncate">
