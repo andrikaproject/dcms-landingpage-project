@@ -15,36 +15,36 @@ function ArrowIcon() {
 export function SectionThree() {
     return (
         <section id="community-section" className="py-12 bg-brand-dark ">
-            <div className="w-full max-w-[1600px] mx-auto py-6 pb-0">
+            <div className="w-full max-w-[1600px] mx-auto py-6 pb-0 px-2 md:px-0">
                 {/* Header Section */}
-                <div className="mb-12">
-                    <span className="bg-[#B7FB5B]/10 text-[#B7FB5B] px-6  py-2.5 rounded-full text-xs font-bold uppercase tracking-wider" style={{ fontFamily: 'Nebulica, serif' }}>
+                <div className="mb-8 md:mb-12">
+                    <span className="bg-[#B7FB5B]/10 text-[#B7FB5B] px-4 md:px-6 py-2 md:py-2.5 rounded-full text-xs font-bold uppercase tracking-wider inline-block" style={{ fontFamily: 'Nebulica, serif' }}>
                         Key Features
                     </span>
-                    <h2 className="text-4xl md:text-5xl font-bold mt-4 mb-2 text-white" style={{ fontFamily: 'Nebulica, serif' }}>
+                    <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold mt-3 md:mt-4 mb-2 text-white" style={{ fontFamily: 'Nebulica, serif' }}>
                         Apa yang Terjadi di Dalam <br /> Sebuah Komunitas?
                     </h2>
-                    <p className="text-gray-400">Kami merupakan sebuah komunitas FREE yang 100% tidak memungut biaya apapun untuk gabung ke komunitas kami, kamu hanya cukup membayar dengan waktu dan pikiran untuk ber interaksi dengan member lainnya, itulah gunanya sebuah komunitas di dirikan</p>
+                    <p className="text-gray-400 text-sm md:text-base">Kami merupakan sebuah komunitas FREE yang 100% tidak memungut biaya apapun untuk gabung ke komunitas kami, kamu hanya cukup membayar dengan waktu dan pikiran untuk ber interaksi dengan member lainnya, itulah gunanya sebuah komunitas di dirikan</p>
                 </div>
 
                 {/* Grid Layout */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
 
                     {/* Card 1: Arahan Market */}
-                    <div className="rounded-3xl p-6 flex flex-col justify-between overflow-hidden group" style={{ background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)', backdropFilter: 'blur(20px)', border: '1px solid rgba(54, 54, 54, 0.43)' }}>
+                    <div className="rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col justify-between overflow-hidden group" style={{ background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)', backdropFilter: 'blur(20px)', border: '1px solid rgba(54, 54, 54, 0.43)' }}>
                         <div>
-                            <div className="flex justify-between items-start mb-4">
-                                <h3 className="text-2xl font-bold text-white" style={{ fontFamily: 'Nebulica, serif' }}>Memberikan Arahan market</h3>
-                                <div className="group-hover:rotate-0 transition-transform duration-300">
+                            <div className="flex justify-between items-start mb-3 md:mb-4 gap-2">
+                                <h3 className="text-lg md:text-2xl font-bold text-white" style={{ fontFamily: 'Nebulica, serif' }}>Memberikan Arahan market</h3>
+                                <div className="group-hover:rotate-0 transition-transform duration-300 flex-shrink-0">
                                     <ArrowIcon />
                                 </div>
                             </div>
-                            <p className="text-gray-400 text-sm mb-6">
+                            <p className="text-gray-400 text-xs md:text-sm mb-4 md:mb-6">
                                 Kita juga berdiskusi banyak terkait arah market seperti apa, bagaimana arah market kedepannya lewat Live bareng Admin-admin.
                             </p>
                         </div>
-                        <div className="mt-2 -mb-42 -mx-6 relative group-hover:scale-[1.02] transition-transform duration-500 px-[24px]">
-                            <div className="aspect-[4/3] rounded-t-xl overflow-hidden border-t border-x border-gray-700 bg-gray-900/50">
+                        <div className="mt-2 -mb-20 md:-mb-42 -mx-4 md:-mx-6 relative group-hover:scale-[1.02] transition-transform duration-500 px-4 md:px-[24px]">
+                            <div className="aspect-[4/3] rounded-t-lg md:rounded-t-xl overflow-hidden border-t border-x border-gray-700 bg-gray-900/50">
                                 <img
                                     src="/images/insight01.webp"
                                     alt="Market Analysis"
@@ -56,20 +56,20 @@ export function SectionThree() {
                     </div>
 
                     {/* Card 2: Sinyal (Tinggi) */}
-                    <div className="rounded-3xl p-6 flex flex-col justify-between overflow-hidden group row-span-2" style={{ background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)', backdropFilter: 'blur(20px)', border: '1px solid rgba(54, 54, 54, 0.43)' }}>
+                    <div className="rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col justify-between overflow-hidden group md:row-span-2" style={{ background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)', backdropFilter: 'blur(20px)', border: '1px solid rgba(54, 54, 54, 0.43)' }}>
                         <div>
-                            <div className="flex justify-between items-start mb-4">
-                                <h3 className="text-2xl font-bold text-white" style={{ fontFamily: 'Nebulica, serif' }}>Sinyal? Kita juga punya</h3>
-                                <div className="group-hover:rotate-0 transition-transform duration-300">
+                            <div className="flex justify-between items-start mb-3 md:mb-4 gap-2">
+                                <h3 className="text-lg md:text-2xl font-bold text-white" style={{ fontFamily: 'Nebulica, serif' }}>Sinyal? Kita juga punya</h3>
+                                <div className="group-hover:rotate-0 transition-transform duration-300 flex-shrink-0">
                                     <ArrowIcon />
                                 </div>
                             </div>
-                            <p className="text-gray-400 text-sm mb-6" >
+                            <p className="text-gray-400 text-xs md:text-sm mb-4 md:mb-6" >
                                 Sinyal Futures? Saham? Ada dong. Kita juga memiliki beberapa segment terkait pandangan market, tentunya semua ini FREE. Segala arahan ini bukan sebagai ajakan harus membeli!!
                             </p>
                         </div>
-                        <div className="mt-2 -mb-12 -mx-6 relative group-hover:scale-[1.02] transition-transform duration-500 px-[24px]">
-                            <div className="aspect-[4/3] rounded-t-xl overflow-hidden border-t border-x border-gray-700 bg-gray-900/50">
+                        <div className="mt-2 -mb-12 md:-mb-12 -mx-4 md:-mx-6 relative group-hover:scale-[1.02] transition-transform duration-500 px-4 md:px-[24px]">
+                            <div className="aspect-[4/3] rounded-t-lg md:rounded-t-xl overflow-hidden border-t border-x border-gray-700 bg-gray-900/50">
                                 <img
                                     src="/images/insight02.webp"
                                     alt="Market Analysis"
@@ -79,64 +79,64 @@ export function SectionThree() {
                             </div>
                         </div>
                     </div>
-                    <div className="rounded-3xl p-6 md:p-8 flex flex-col justify-between overflow-hidden group md:row-span-2" style={{ background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)', backdropFilter: 'blur(20px)', border: '1px solid rgba(54, 54, 54, 0.43)' }}>
+                    <div className="rounded-2xl md:rounded-3xl p-4 md:p-6 lg:p-8 flex flex-col justify-between overflow-hidden group md:row-span-2" style={{ background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)', backdropFilter: 'blur(20px)', border: '1px solid rgba(54, 54, 54, 0.43)' }}>
                         <div>
-                            <div className="flex justify-between items-start mb-4">
-                                <h3 className="text-xl md:text-2xl font-bold text-white" style={{ fontFamily: 'Nebulica, serif' }}>Memberikan Insight </h3>
+                            <div className="flex justify-between items-start mb-3 md:mb-4 gap-2">
+                                <h3 className="text-base md:text-xl lg:text-2xl font-bold text-white" style={{ fontFamily: 'Nebulica, serif' }}>Memberikan Insight </h3>
                                 <div className="group-hover:rotate-0 transition-transform duration-300 flex-shrink-0">
                                     <ArrowIcon />
                                 </div>
                             </div>
-                            <p className="text-gray-400 text-sm md:text-base mb-6 leading-relaxed" >
+                            <p className="text-gray-400 text-xs md:text-sm lg:text-base mb-4 md:mb-6 leading-relaxed" >
                                 Dimana ada sebuah group, member pasti ada yang memberikan insight untuk tumbuh kembang bersama yang lebih baik
                             </p>
                         </div>
-                        <div className="mt-2 -mb-6 md:-mb-12 -mx-6 relative group-hover:scale-[1.02] transition-transform duration-500 px-[24px]">
-                            <img src="/images/insight03.webp" alt="Signal Group" loading="lazy" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" />
+                        <div className="mt-2 -mb-4 md:-mb-6 lg:-mb-12 -mx-4 md:-mx-6 relative group-hover:scale-[1.02] transition-transform duration-500 px-4 md:px-[24px]">
+                            <img src="/images/insight03.webp" alt="Signal Group" loading="lazy" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition rounded-t-lg md:rounded-t-xl" />
                         </div>
                     </div>
 
                     {/* Card 3: Insight */}
-                    <div className="rounded-3xl p-6 flex flex-col justify-between overflow-hidden group" style={{ background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)', backdropFilter: 'blur(20px)', border: '1px solid rgba(54, 54, 54, 0.43)' }}>
+                    <div className="rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col justify-between overflow-hidden group" style={{ background: 'linear-gradient(103deg, rgba(54, 54, 54, 0.00) -10.05%, rgba(54, 54, 54, 0.36) 111.52%)', backdropFilter: 'blur(20px)', border: '1px solid rgba(54, 54, 54, 0.43)' }}>
                         <div>
-                            <div className="flex justify-between items-start mb-4">
-                                <h3 className="text-2xl font-bold text-white" style={{ fontFamily: 'Nebulica, serif' }}>Tips & Trick, FREE</h3>
-                                <div className=" group-hover:rotate-0 transition-transform duration-300">
+                            <div className="flex justify-between items-start mb-3 md:mb-4 gap-2">
+                                <h3 className="text-lg md:text-2xl font-bold text-white" style={{ fontFamily: 'Nebulica, serif' }}>Tips & Trick, FREE</h3>
+                                <div className="group-hover:rotate-0 transition-transform duration-300 flex-shrink-0">
                                     <ArrowIcon />
                                 </div>
                             </div>
-                            <p className="text-gray-400 text-sm mb-6">
+                            <p className="text-gray-400 text-xs md:text-sm mb-4 md:mb-6">
                                 Selama kamu menyimak isi group, otomatis kamu juga akan mendapatkan berbagai insight yang berbobot, tentunya di group ini dan Free, dan selalu kami PIN terkait insight menarik.
                             </p>
                         </div>
-                        <div className="relative flex-grow mt-4 md:mt-20 flex justify-center items-end min-h-[220px] md:min-h-[100px]">
+                        <div className="relative flex-grow mt-3 md:mt-4 lg:mt-20 flex justify-center items-end min-h-[150px] md:min-h-[180px] lg:min-h-[220px]">
                             {/* Left Image */}
-                            <div className="absolute left-[5%] md:left-[10%] bottom-0 w-[70%] md:w-[35%] z-20 transform -translate-x-4 md:-translate-x-12 translate-y-4 md:translate-y-8 rotate-[-5deg] group-hover:rotate-0 group-hover:translate-y-0 group-hover:translate-x-0 transition-all duration-700 ease-out">
+                            <div className="absolute left-[2%] md:left-[5%] lg:left-[10%] bottom-0 w-[28%] md:w-[32%] lg:w-[35%] z-20 transform -translate-x-2 md:-translate-x-3 lg:-translate-x-12 translate-y-2 md:translate-y-4 lg:translate-y-8 rotate-[-5deg] group-hover:rotate-0 group-hover:translate-y-0 group-hover:translate-x-0 transition-all duration-700 ease-out">
                                 <img
                                     src="/images/insight04-01.webp"
                                     alt="Insight Tip 1"
                                     loading="lazy"
-                                    className="rounded-[1.5rem] border border-white/10 shadow-2xl w-full h-auto opacity-90 group-hover:opacity-100"
+                                    className="rounded-lg md:rounded-xl lg:rounded-[1.5rem] border border-white/10 shadow-lg md:shadow-xl lg:shadow-2xl w-full h-auto opacity-90 group-hover:opacity-100"
                                 />
                             </div>
 
                             {/* Middle Image */}
-                            <div className="absolute left-1/2 bottom-0 w-[70%] md:w-[35%] z-30 transform -translate-x-1/2 translate-y-8 md:translate-y-16 group-hover:translate-y-0 transition-all duration-700 ease-out delay-75">
+                            <div className="absolute left-1/2 bottom-0 w-[28%] md:w-[32%] lg:w-[35%] z-30 transform -translate-x-1/2 translate-y-3 md:translate-y-5 lg:translate-y-16 group-hover:translate-y-0 transition-all duration-700 ease-out delay-75">
                                 <img
                                     src="/images/insight04-02.webp"
                                     alt="Insight Tip 2"
                                     loading="lazy"
-                                    className="rounded-[1.5rem] border border-white/10 shadow-2xl w-full h-auto"
+                                    className="rounded-lg md:rounded-xl lg:rounded-[1.5rem] border border-white/10 shadow-lg md:shadow-xl lg:shadow-2xl w-full h-auto"
                                 />
                             </div>
 
                             {/* Right Image */}
-                            <div className="absolute right-[5%] md:right-[10%] bottom-0 w-[70%] md:w-[35%] z-20 transform translate-x-4 md:translate-x-12 translate-y-4 md:translate-y-8 rotate-[5deg] group-hover:rotate-0 group-hover:translate-y-0 group-hover:translate-x-0 transition-all duration-700 ease-out">
+                            <div className="absolute right-[2%] md:right-[5%] lg:right-[10%] bottom-0 w-[28%] md:w-[32%] lg:w-[35%] z-20 transform translate-x-2 md:translate-x-3 lg:translate-x-12 translate-y-2 md:translate-y-4 lg:translate-y-8 rotate-[5deg] group-hover:rotate-0 group-hover:translate-y-0 group-hover:translate-x-0 transition-all duration-700 ease-out">
                                 <img
                                     src="/images/insight04-03.webp"
                                     alt="Insight Tip 3"
                                     loading="lazy"
-                                    className="rounded-[1.5rem] border border-white/10 shadow-2xl w-full h-auto opacity-90 group-hover:opacity-100"
+                                    className="rounded-lg md:rounded-xl lg:rounded-[1.5rem] border border-white/10 shadow-lg md:shadow-xl lg:shadow-2xl w-full h-auto opacity-90 group-hover:opacity-100"
                                 />
                             </div>
                         </div>

@@ -8,10 +8,10 @@ module.exports = {
     theme: {
         extend: {
             fontFamily: {
-                sans: "var(--font-geist-sans)",
+                sans: ["var(--font-chakra-petch)", "Chakra Petch", "Arial", "sans-serif"],
                 mono: "var(--font-geist-mono)",
-                nebulica: ["Nebulica", "serif"],
-                chakra: "var(--font-chakra-petch)",
+                nebulica: ["Nebulica", "sans-serif"],
+                chakra: ["var(--font-chakra-petch)", "Chakra Petch", "sans-serif"],
             },
             colors: {
                 brand: {

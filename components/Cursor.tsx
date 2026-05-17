@@ -1,14 +1,22 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { gsap } from 'gsap';
 
 export function Cursor() {
     const cursorRef = useRef<HTMLDivElement>(null);
     const followerRef = useRef<HTMLDivElement>(null);
     const [isDesktop, setIsDesktop] = useState(false);
+    const pathname = usePathname();
+    const isLandingPage = pathname === '/';
 
     useEffect(() => {
+        if (!isLandingPage) {
+            document.body.style.cursor = 'auto';
+            return;
+        }
+
         // Check if device is desktop (not touch and large screen)
         const checkDevice = () => {
             const isTouchDevice = window.matchMedia("(pointer: coarse)").matches;
@@ -20,10 +28,10 @@ export function Cursor() {
         window.addEventListener('resize', checkDevice);
 
         return () => window.removeEventListener('resize', checkDevice);
-    }, []);
+    }, [isLandingPage]);
 
     useEffect(() => {
-        if (!isDesktop) return;
+        if (!isLandingPage || !isDesktop) return;
 
         const cursor = cursorRef.current;
         const follower = followerRef.current;
@@ -47,9 +55,8 @@ export function Cursor() {
         window.addEventListener("mousemove", onMouseMove);
 
         // Smooth following logic
-        gsap.ticker.add(() => {
+        const updateCursor = () => {
             const dt = 1.0 - Math.pow(1.0 - 0.2, gsap.ticker.deltaRatio());
-            const dtFollower = 1.0 - Math.pow(1.0 - 0.1, gsap.ticker.deltaRatio());
 
             pos.x += (mouse.x - pos.x) * dt;
             pos.y += (mouse.y - pos.y) * dt;
@@ -59,7 +66,9 @@ export function Cursor() {
 
             xSetFollower(pos.x);
             ySetFollower(pos.y);
-        });
+        };
+
+        gsap.ticker.add(updateCursor);
 
         // Hide default cursor on interactive elements or globally
         document.body.style.cursor = 'none';
@@ -80,15 +89,16 @@ export function Cursor() {
 
         return () => {
             window.removeEventListener("mousemove", onMouseMove);
+            gsap.ticker.remove(updateCursor);
             document.body.style.cursor = 'auto';
             links.forEach(link => {
                 link.removeEventListener('mouseenter', onEnter);
                 link.removeEventListener('mouseleave', onLeave);
             });
         };
-    }, [isDesktop]);
+    }, [isDesktop, isLandingPage]);
 
-    if (!isDesktop) return null;
+    if (!isLandingPage || !isDesktop) return null;
 
     return (
         <>

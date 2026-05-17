@@ -28,6 +28,7 @@ export const metadata: Metadata = {
 };
 
 import { Cursor } from "@/components/Cursor";
+import { WebVitals } from "@/components/WebVitals";
 
 export default function RootLayout({
   children,
@@ -40,6 +41,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${chakraPetch.variable} antialiased`}
       >
         <Cursor />
+        <WebVitals />
         {children}
       </body>
     </html>
