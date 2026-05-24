@@ -1,9 +1,9 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import authConfig from "./auth.config";
-import prisma from "@/lib/prisma";
 import { comparePassword } from "@/lib/utils";
 import { findBitunixUserByIdentifier } from "@/lib/bitunix-users";
+import { findUserByEmail } from "@/lib/users";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig,
@@ -64,9 +64,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
                 try {
                     console.log("🔍 ATTEMPTING LOGIN FOR:", credentials.email);
-                    const user = await prisma.user.findUnique({
-                        where: { email: credentials.email },
-                    });
+                    const user = await findUserByEmail(credentials.email);
 
                     if (!user) {
                         console.log("❌ LOGIN FAILED: User not found in database");

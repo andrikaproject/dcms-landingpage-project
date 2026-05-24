@@ -1,35 +1,42 @@
-require('dotenv').config();
-const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
-const { Pool } = require('pg');
-const bcrypt = require('bcryptjs');
+import "dotenv/config";
+import { randomUUID } from "node:crypto";
+import bcrypt from "bcryptjs";
+import mysql from "mysql2/promise";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL || 'postgresql://casaos:casaos@192.168.0.103:5432/casaos?schema=public' });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required to register an admin.");
+}
+
+const pool = mysql.createPool({ uri: databaseUrl });
 
 async function run() {
     console.log("⏳ Sedang mendaftarkan Admin...");
     const hashedPassword = bcrypt.hashSync('admin123', 10);
 
     try {
-        const admin = await prisma.user.upsert({
-            where: { email: 'admin@dcms.com' },
-            update: {},
-            create: {
-                email: 'admin@dcms.com',
-                name: 'Super Admin DCMS',
-                password: hashedPassword,
-                role: 'ADMIN',
-            },
-        });
+        await pool.execute(
+            `
+                INSERT INTO \`User\`
+                    (id, email, name, password, role, statusReview, createdAt, updatedAt)
+                VALUES
+                    (?, 'admin@dcms.com', 'Super Admin DCMS', ?, 'ADMIN', 'NONE', NOW(3), NOW(3))
+                ON DUPLICATE KEY UPDATE
+                    password = VALUES(password),
+                    role = 'ADMIN',
+                    updatedAt = NOW(3)
+            `,
+            [randomUUID(), hashedPassword],
+        );
+
         console.log("✅ BERHASIL! Akun Admin siap digunakan:");
-        console.log("- Email: " + admin.email);
+        console.log("- Email: admin@dcms.com");
         console.log("- Pass : admin123");
     } catch (error) {
         console.error("❌ GAGAL:", error.message);
     } finally {
-        await prisma.$disconnect();
+        await pool.end();
     }
 }
 

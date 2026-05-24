@@ -2,10 +2,10 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import prisma from "@/lib/prisma";
 import { getMarketDashboard } from "@/lib/market-dashboard";
 import { lockSignalAction, removeLockedSignalAction } from "@/app/actions/lock-signal";
 import { refreshLockedSignalsForUser } from "@/lib/locked-signals";
+import { countPendingUsers } from "@/lib/users";
 import ClearableSignalBoard from "@/components/ClearableSignalBoard";
 import DashboardShell from "@/components/DashboardShell";
 import LockSignalAutoRefresh from "@/components/LockSignalAutoRefresh";
@@ -761,9 +761,7 @@ export default async function DashboardPage({ searchParams }) {
     const [marketDashboard, pendingCount, lockedSignals] = await Promise.all([
         getMarketDashboard({ timeframe, symbol, reanalyze }),
         session.user.role === "ADMIN"
-            ? prisma.user.count({
-                where: { statusReview: "PENDING" },
-            })
+            ? countPendingUsers()
             : 0,
         refreshLockedSignalsForUser(session.user.email),
     ]);

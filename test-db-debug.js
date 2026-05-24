@@ -1,30 +1,30 @@
-const { Pool } = require('pg');
-require('dotenv').config();
+import "dotenv/config";
+import mysql from "mysql2/promise";
 
 const connectionString = process.env.DATABASE_URL;
 console.log("🔗 Testing connection to:", connectionString);
 
-const pool = new Pool({
-    connectionString,
-    connectionTimeoutMillis: 5000 // 5 seconds timeout
-});
-
 async function test() {
+    let connection;
+
     try {
-        const client = await pool.connect();
-        console.log("✅ Successfully connected to PostgreSQL server!");
+        connection = await mysql.createConnection({
+            uri: connectionString,
+            connectTimeout: 5000,
+        });
 
-        const res = await client.query('SELECT current_database(), current_schema()');
-        console.log("📊 Current DB info:", res.rows[0]);
+        console.log("✅ Successfully connected to MySQL/MariaDB server!");
 
-        client.release();
+        const [rows] = await connection.query(
+            "SELECT DATABASE() AS database_name, CURRENT_USER() AS current_user"
+        );
+
+        console.log("📊 Current DB info:", rows[0]);
     } catch (err) {
         console.error("❌ Connection failed:");
         console.error(err.message);
-        if (err.detail) console.error("Detail:", err.detail);
-        if (err.hint) console.error("Hint:", err.hint);
     } finally {
-        await pool.end();
+        await connection?.end();
     }
 }
 

@@ -29,7 +29,6 @@ export function FeedbackModal({
     const modalRef = useRef<HTMLDivElement>(null);
     const dragStartY = useRef(0);
     const currentDragOffset = useRef(0);
-    const [isDragging, setIsDragging] = useState(false);
 
     const handleClose = () => {
         setIsClosing(true);
@@ -41,7 +40,6 @@ export function FeedbackModal({
 
     const handleDragStart = (clientY: number) => {
         dragStartY.current = clientY;
-        setIsDragging(true);
     };
 
     const handleDragMove = (clientY: number) => {
@@ -57,7 +55,6 @@ export function FeedbackModal({
     };
 
     const handleDragEnd = () => {
-        setIsDragging(false);
         if (currentDragOffset.current > 100) { // If dragged more than 100px, close
             handleClose();
         } else if (modalRef.current) {
@@ -72,7 +69,6 @@ export function FeedbackModal({
     // Reset styles when modal opens
     useEffect(() => {
         if (isOpen) {
-            setIsClosing(false);
             if (modalRef.current) {
                 modalRef.current.style.transform = 'translateY(0)';
                 modalRef.current.style.transition = 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)';

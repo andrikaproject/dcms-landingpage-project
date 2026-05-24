@@ -1,8 +1,8 @@
 "use server";
 
-import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { deleteUserById, updateUserApprovalStatus } from "@/lib/users";
 
 /**
  * Update user approval status (APPROVED/REJECTED/NONE)
@@ -21,10 +21,7 @@ export async function updateUserStatus(userId, newStatus) {
     }
 
     try {
-        await prisma.user.update({
-            where: { id: userId },
-            data: { statusReview: newStatus },
-        });
+        await updateUserApprovalStatus(userId, newStatus);
 
         revalidatePath("/dashboard");
         revalidatePath("/dashboard/admin/users");
@@ -47,9 +44,7 @@ export async function deleteUser(userId) {
     }
 
     try {
-        await prisma.user.delete({
-            where: { id: userId },
-        });
+        await deleteUserById(userId);
 
         revalidatePath("/dashboard");
         revalidatePath("/dashboard/admin/users");

@@ -4,8 +4,18 @@ import React, { useState } from 'react';
 import { FeedbackCard } from './FeedbackCard';
 import { FeedbackModal } from './FeedbackModal';
 
+type FeedbackItem = {
+    memberSince: string;
+    feedback: string;
+    fullFeedback?: string;
+    discordId: string;
+    username: string;
+    displayName: string;
+    profileImage?: string;
+};
+
 // feedback data - kolom kiri
-const leftColumnFeedbacks = [
+const leftColumnFeedbacks: FeedbackItem[] = [
     {
         memberSince: "Member Since, 2025",
         feedback: "September awal, Tahun 2025 di sini awalnya nya saya masuk di perkenalkan sama pak RT, sebelumnya saya cuma bermain saham dan obligasi trus saya di ajak balajar crypto sama teman seangkatan di kampus lalu balajarlah..",
@@ -104,7 +114,7 @@ const centerColumnFeedbacks = [
 ];
 
 // feedback data - kolom kanan
-const rightColumnFeedbacks = [
+const rightColumnFeedbacks: FeedbackItem[] = [
     {
         memberSince: "Member Since, 2025",
         feedback: "awal kenal dcms karena pas lagi scroll threads lewat postingan kaisar @Laksamana_Zacx-Corp dan waktu itu dcms masih ada di tele saya inget banget wkwkwk. awal awal ngikut call terus dari om bagus terus pelan pelan belajar buat analisa sendiri.. inget banget baca buku micin karyanya om...",
@@ -153,10 +163,10 @@ const rightColumnFeedbacks = [
 ];
 
 export function FeedbackSection() {
-    const [selectedFeedback, setSelectedFeedback] = useState<any>(null);
+    const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const handleCardClick = (feedback: any) => {
+    const handleCardClick = (feedback: FeedbackItem) => {
         setSelectedFeedback(feedback);
         setIsModalOpen(true);
     };

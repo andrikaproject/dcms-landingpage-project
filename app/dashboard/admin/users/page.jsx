@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import prisma from "@/lib/prisma";
+import { listUsers } from "@/lib/users";
 import { updateUserStatus, deleteUser } from "@/app/actions/admin";
 import Link from "next/link";
 
@@ -13,9 +13,7 @@ export default async function AdminUsersPage() {
     }
 
     // Ambil semua user (bisa ditambahkan pagination nanti)
-    const users = await prisma.user.findMany({
-        orderBy: { createdAt: "desc" },
-    });
+    const users = await listUsers();
 
     const pendingUsers = users.filter(u => u.statusReview === "PENDING");
     const otherUsers = users.filter(u => u.statusReview !== "PENDING" && u.role !== "ADMIN");

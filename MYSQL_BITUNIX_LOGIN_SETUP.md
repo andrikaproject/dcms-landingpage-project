@@ -23,14 +23,16 @@ BITUNIX_API_SECRET=...
 AUTH_SECRET=...
 ```
 
-## Tabel dan Prisma
+## Tabel dan Drizzle
 
-Tabel `bitunix_users` dikelola oleh Prisma. Setelah env siap, jalankan:
+Tabel `bitunix_users` dikelola oleh Drizzle + mysql2. Untuk database kosong, generate dan jalankan migration:
 
 ```bash
-npx prisma db push
-npx prisma generate
+npm run db:generate
+npm run db:migrate
 ```
+
+Untuk shared hosting yang hanya menyediakan phpMyAdmin, gunakan SQL di folder `drizzle/` dan import manual lewat phpMyAdmin.
 
 ## API
 
