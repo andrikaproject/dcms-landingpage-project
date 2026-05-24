@@ -4,7 +4,7 @@ import { requestPasswordReset } from "@/lib/password-reset";
 export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const email = String(body.email || "").trim().toLowerCase();
-    const origin = request.nextUrl.origin;
+    const origin = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 
     try {
         const result = await requestPasswordReset({ email, origin });
