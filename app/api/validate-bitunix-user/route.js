@@ -1,11 +1,27 @@
 import { NextResponse } from "next/server";
 import { isValidUidFormat, validateBitunixUser } from "@/lib/bitunix";
+import { checkRateLimit, getRequestIp } from "@/lib/safe-action";
 
 export const runtime = "nodejs";
 
 export async function POST(request) {
     const { uid: rawUid } = await request.json().catch(() => ({}));
     const uid = String(rawUid || "").trim();
+    const ip = await getRequestIp();
+    const rateLimit = checkRateLimit(`api-validate-bitunix:${ip}:${uid || "empty"}`, {
+        limit: 20,
+        windowMs: 10 * 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+        return NextResponse.json(
+            {
+                valid: false,
+                message: `Terlalu banyak percobaan. Coba lagi dalam ${rateLimit.retryAfter} detik.`,
+            },
+            { status: 429 }
+        );
+    }
 
     if (!isValidUidFormat(uid)) {
         return NextResponse.json(

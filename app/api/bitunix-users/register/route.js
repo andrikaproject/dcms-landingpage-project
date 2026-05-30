@@ -1,15 +1,20 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import {
     createBitunixUser,
     findBitunixUserByEmail,
     findBitunixUserByUid,
     findBitunixUserByUsername,
 } from "@/lib/bitunix-users";
-import { isValidUidFormat, validateBitunixUser } from "@/lib/bitunix";
+import { validateBitunixUser } from "@/lib/bitunix";
+import { checkRateLimit, getRequestIp } from "@/lib/safe-action";
 
-function isValidEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
+const registerSchema = z.object({
+    uid: z.string().trim().regex(/^[0-9]{5,20}$/, "UID harus berupa angka dengan panjang 5 sampai 20 digit."),
+    email: z.string().trim().toLowerCase().email("Email tidak valid.").max(255, "Email terlalu panjang."),
+    password: z.string().min(8, "Password minimal 8 karakter.").max(128, "Password terlalu panjang."),
+    name: z.string().trim().min(2, "Nama minimal 2 karakter.").max(120, "Nama terlalu panjang."),
+});
 
 function toPublicUser(user) {
     const publicUser = { ...user };
@@ -19,26 +24,31 @@ function toPublicUser(user) {
 
 export async function POST(request) {
     const body = await request.json().catch(() => ({}));
-    const uid = String(body.uid || body.uuidBitunix || "").trim();
-    const email = String(body.email || "").trim().toLowerCase();
-    const password = String(body.password || "");
-    const name = String(body.name || "").trim();
+    const parsed = registerSchema.safeParse({
+        uid: body.uid || body.uuidBitunix,
+        email: body.email,
+        password: body.password,
+        name: body.name,
+    });
 
-    if (!isValidUidFormat(uid)) {
+    if (!parsed.success) {
         return NextResponse.json(
-            { error: "UID harus berupa angka dengan panjang 5 sampai 20 digit." },
+            { error: parsed.error.issues[0]?.message || "Payload registrasi tidak valid." },
             { status: 400 }
         );
     }
 
-    if (!isValidEmail(email)) {
-        return NextResponse.json({ error: "Email tidak valid." }, { status: 400 });
-    }
+    const { uid, email, password, name } = parsed.data;
+    const ip = await getRequestIp();
+    const rateLimit = checkRateLimit(`api-register-bitunix:${ip}:${email}`, {
+        limit: 5,
+        windowMs: 10 * 60 * 1000,
+    });
 
-    if (password.length < 8) {
+    if (!rateLimit.allowed) {
         return NextResponse.json(
-            { error: "Password minimal 8 karakter." },
-            { status: 400 }
+            { error: `Terlalu banyak percobaan. Coba lagi dalam ${rateLimit.retryAfter} detik.` },
+            { status: 429 }
         );
     }
 

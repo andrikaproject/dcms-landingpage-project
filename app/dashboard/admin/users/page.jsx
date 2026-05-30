@@ -90,7 +90,7 @@ function UserRow({ user, isPending }) {
                     <>
                         <form action={async () => {
                             "use server";
-                            await updateUserStatus(user.id, "APPROVED");
+                            await updateUserStatus({ userId: user.id, newStatus: "APPROVED" });
                         }} className="min-w-0 md:flex-none">
                             <button className="min-h-11 w-full rounded-xl bg-green-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-green-900/20 transition-all hover:bg-green-500">
                                 APPROVE
@@ -98,7 +98,7 @@ function UserRow({ user, isPending }) {
                         </form>
                         <form action={async () => {
                             "use server";
-                            await updateUserStatus(user.id, "REJECTED");
+                            await updateUserStatus({ userId: user.id, newStatus: "REJECTED" });
                         }} className="min-w-0 md:flex-none">
                             <button className="min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2 text-xs font-bold text-zinc-400 transition-all hover:bg-red-900/50 hover:text-red-500">
                                 REJECT
@@ -108,7 +108,7 @@ function UserRow({ user, isPending }) {
                 ) : (
                     <form action={async () => {
                         "use server";
-                        await deleteUser(user.id);
+                        await deleteUser({ userId: user.id });
                     }} className="col-span-2 min-w-0 md:flex-none">
                         <button className="min-h-11 w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2 text-xs font-bold text-zinc-600 transition-all hover:border-red-900/50 hover:bg-red-950/20 hover:text-red-500">
                             DELETE

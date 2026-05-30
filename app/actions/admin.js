@@ -1,56 +1,41 @@
 "use server";
 
-import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { deleteUserById, updateUserApprovalStatus } from "@/lib/users";
+import { adminActionClient, rateLimitAction } from "@/lib/safe-action";
 
-/**
- * Update user approval status (APPROVED/REJECTED/NONE)
- * Only accessible by ADMIN
- */
-export async function updateUserStatus(userId, newStatus) {
-    const session = await auth();
+const adminMutationRateLimit = rateLimitAction({
+    keyPrefix: "admin-user-mutation",
+    limit: 60,
+    windowMs: 60 * 1000,
+});
 
-    // 1. Security check: Only Admin can perform this
-    if (!session || session.user.role !== "ADMIN") {
-        throw new Error("Unauthorized: Hanya Admin yang bisa melakukan ini.");
-    }
+const userIdSchema = z.string().trim().uuid("User ID tidak valid.");
 
-    if (!["APPROVED", "REJECTED", "NONE", "PENDING"].includes(newStatus)) {
-        throw new Error("Invalid status.");
-    }
+const updateUserStatusSchema = z.object({
+    userId: userIdSchema,
+    newStatus: z.enum(["APPROVED", "REJECTED", "NONE", "PENDING"]),
+});
 
-    try {
+export const updateUserStatus = adminActionClient
+    .use(adminMutationRateLimit)
+    .inputSchema(updateUserStatusSchema)
+    .action(async ({ parsedInput: { userId, newStatus } }) => {
         await updateUserApprovalStatus(userId, newStatus);
 
         revalidatePath("/dashboard");
         revalidatePath("/dashboard/admin/users");
         return { success: true };
-    } catch (error) {
-        console.error("Failed to update user status:", error);
-        return { error: "Gagal mengupdate status user." };
-    }
-}
+    });
 
-/**
- * Delete a user
- * Only accessible by ADMIN
- */
-export async function deleteUser(userId) {
-    const session = await auth();
-
-    if (!session || session.user.role !== "ADMIN") {
-        throw new Error("Unauthorized.");
-    }
-
-    try {
+export const deleteUser = adminActionClient
+    .use(adminMutationRateLimit)
+    .inputSchema(z.object({ userId: userIdSchema }))
+    .action(async ({ parsedInput: { userId } }) => {
         await deleteUserById(userId);
 
         revalidatePath("/dashboard");
         revalidatePath("/dashboard/admin/users");
         return { success: true };
-    } catch (error) {
-        console.error("Failed to delete user:", error);
-        return { error: "Gagal menghapus user." };
-    }
-}
+    });

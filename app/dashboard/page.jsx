@@ -3,12 +3,12 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getMarketDashboard } from "@/lib/market-dashboard";
-import { lockSignalAction, removeLockedSignalAction } from "@/app/actions/lock-signal";
+import { removeLockedSignalAction } from "@/app/actions/lock-signal";
 import { refreshLockedSignalsForUser } from "@/lib/locked-signals";
 import { countPendingUsers } from "@/lib/users";
-import ClearableSignalBoard from "@/components/ClearableSignalBoard";
 import DashboardShell from "@/components/DashboardShell";
 import LockSignalAutoRefresh from "@/components/LockSignalAutoRefresh";
+import DashboardSignalWorkspace from "./DashboardSignalWorkspace";
 
 const FONT_NEBULICA = "Nebulica, sans-serif";
 const FONT_CHAKRA = "var(--font-chakra-petch), Chakra Petch, sans-serif";
@@ -84,14 +84,6 @@ function formatUsd(value, digits = 2) {
     return `$${number.toFixed(6)}`;
 }
 
-function formatVolume(value) {
-    const number = Number(value || 0);
-    if (number >= 1_000_000_000) return `$${(number / 1_000_000_000).toFixed(1)}B`;
-    if (number >= 1_000_000) return `$${(number / 1_000_000).toFixed(1)}M`;
-    if (number >= 1_000) return `$${(number / 1_000).toFixed(1)}K`;
-    return `$${number.toFixed(0)}`;
-}
-
 function biasStyles(bias) {
     if (bias === "long") {
         return {
@@ -140,131 +132,6 @@ function getRangePercent(value, min, max) {
     const number = Number(value);
     if (!Number.isFinite(number) || max === min) return 0;
     return clampPercent((number - min) / (max - min) * 100);
-}
-
-function SignalCard({ signal }) {
-    const styles = biasStyles(signal.bias);
-    const isDex = signal.marketType === "DEX" || !signal.indicatorAvailable;
-    const riskPercent = Number(signal.riskPercent || 0);
-    const rewardPercent = Number(signal.rewardPercent || 0);
-    const rrLabel = signal.riskReward ? `1:${Number(signal.riskReward).toFixed(1)}` : "-";
-    const sinceEntry = Number(signal.sinceEntryPercent ?? signal.change ?? 0);
-    const sinceEntryTone = sinceEntry >= 0 ? "text-[#a3e635]" : "text-[#f87171]";
-
-    return (
-        <article className="@container relative overflow-hidden rounded-lg bg-gradient-to-br from-[#374151] to-[#111827] p-4 shadow-[0_1px_2px_rgba(10,13,18,0.05)] sm:p-5 lg:p-6">
-            <div className="pointer-events-none absolute inset-0 rounded-lg bg-[radial-gradient(circle_at_0%_0%,rgba(255,255,255,0.12),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.06),transparent_55%)]" />
-
-            <div className="relative flex flex-col gap-4">
-                <div className="flex w-full flex-col gap-4 @lg:flex-row @lg:items-center">
-                    <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
-                        <span className={`rounded-md px-2 py-[3px] uppercase ${styles.badge}`} style={FIGMA_TEXT.textXsBoldWhite}>
-                            {styles.label}
-                        </span>
-                        <p className="min-w-full truncate" style={{ ...FIGMA_TEXT.textBaseMediumWhite, fontWeight: 700 }}>
-                            {signal.base}/{isDex ? "USD" : "USDT"}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-4">
-                            <p style={{ ...FIGMA_TEXT.textBaseMediumWhite, fontWeight: 700 }}>{formatPriceLabel(signal.price)}</p>
-                            <p className={sinceEntryTone} style={FIGMA_TEXT.textXsMedium}>
-                                {formatSignedPercent(sinceEntry)} Since Entry From Signal
-                            </p>
-                        </div>
-                        <p className="max-w-[48ch] text-[#f8fafc]" style={FIGMA_TEXT.textSmMedium}>
-                            {isDex
-                                ? "DEX token hanya menampilkan price, liquidity, dan volume karena data indikator belum tersedia."
-                                : `Current masih dekat entry. Risk ke SL ${riskPercent.toFixed(2)}%, reward ke TP2 ${rewardPercent.toFixed(2)}%.`}
-                        </p>
-                    </div>
-
-                    <div className="grid w-full shrink-0 grid-cols-2 gap-2 whitespace-nowrap @lg:w-[min(42%,180px)]">
-                        <IndicatorPill label="RSI" value={signal.rsi ? Math.round(signal.rsi) : "-"} tone={styles.metric} />
-                        <IndicatorPill label="R:R" value={rrLabel} tone="text-[#a3e635]" />
-                        <IndicatorPill label={`EMA${signal.fastPeriod || 21}`} value={formatPriceLabel(signal.emaFast)} tone="text-[#f8fafc]" />
-                        <IndicatorPill label={`EMA${signal.slowPeriod || 50}`} value={formatPriceLabel(signal.emaSlow)} tone="text-[#f8fafc]" />
-                        <IndicatorPill
-                            label="STOCH RSI"
-                            value={signal.stochK ? Number(signal.stochK).toFixed(1) : "-"}
-                            tone={signal.stochK > signal.stochD ? "text-[#a3e635]" : "text-[#f87171]"}
-                            wide
-                        />
-                    </div>
-                </div>
-
-                <SignalProgress signal={signal} />
-
-                {isDex && (
-                    <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
-                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-yellow-300">DEX Data Only</p>
-                        <p className="mt-1 text-sm text-zinc-300">
-                            Liquidity {formatUsd(signal.liquidityUsd)} · Volume {formatVolume(signal.volume24h)}
-                        </p>
-                    </div>
-                )}
-
-                <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-                    <form action={lockSignalAction} className="min-w-0 flex-1">
-                        <SignalHiddenInputs signal={signal} />
-                        <button
-                            type="submit"
-                            className="relative flex min-h-11 w-full items-center justify-center overflow-hidden rounded-lg border-2 border-white/10 bg-[#B7FB5B] px-3 py-2 shadow-[0_1px_2px_rgba(10,13,18,0.05),inset_0_-2px_0_rgba(10,13,18,0.05),inset_0_0_0_1px_rgba(10,13,18,0.18)] transition hover:bg-[#a8ec4c]"
-                        >
-                            <span className="text-black" style={{ ...FIGMA_TEXT.textSmBoldWhite, color: "#000000" }}>Lock Signal</span>
-                        </button>
-                    </form>
-                    <form action="/dashboard" method="get" className="min-w-0 flex-1">
-                        <input type="hidden" name="timeframe" value={signal.timeframe || "15m"} />
-                        <input type="hidden" name="symbol" value={signal.base} />
-                        <input type="hidden" name="reanalyze" value={signal.symbol} />
-                        <button
-                            type="submit"
-                            className="relative flex min-h-11 w-full items-center justify-center overflow-hidden rounded-lg border-2 border-white/10 bg-[#B7FB5B] px-3 py-2 shadow-[0_1px_2px_rgba(10,13,18,0.05),inset_0_-2px_0_rgba(10,13,18,0.05),inset_0_0_0_1px_rgba(10,13,18,0.18)] transition hover:bg-[#a8ec4c]"
-                        >
-                            <span className="text-black" style={{ ...FIGMA_TEXT.textSmBoldWhite, color: "#000000" }}>Re Analyze</span>
-                        </button>
-                    </form>
-                    <Link
-                        href="#lock-signal-list"
-                        className="relative flex min-h-11 min-w-0 items-center justify-center overflow-hidden rounded-lg border border-[#d5d7da] bg-white px-3 py-2 shadow-[0_1px_2px_rgba(10,13,18,0.05),inset_0_-2px_0_rgba(10,13,18,0.05),inset_0_0_0_1px_rgba(10,13,18,0.18)] transition hover:bg-zinc-100"
-                    >
-                        <span style={{ ...FIGMA_TEXT.textSmBoldWhite, color: "#414651" }}>Check Detail</span>
-                    </Link>
-                </div>
-            </div>
-        </article>
-    );
-}
-
-function SignalHiddenInputs({ signal }) {
-    const fields = {
-        symbol: signal.symbol,
-        base: signal.base,
-        timeframe: signal.timeframe || "15m",
-        bias: signal.bias || "neutral",
-        source: signal.source || "",
-        marketType: signal.marketType || "CEX",
-        entry: signal.entry,
-        price: signal.price,
-        sl: signal.sl,
-        tp1: signal.tp1,
-        tp2: signal.tp2 || signal.tp,
-        rsi: signal.rsi,
-        emaFast: signal.emaFast,
-        emaSlow: signal.emaSlow,
-        fastPeriod: signal.fastPeriod,
-        slowPeriod: signal.slowPeriod,
-        stochK: signal.stochK,
-        stochD: signal.stochD,
-        riskPercent: signal.riskPercent,
-        rewardPercent: signal.rewardPercent,
-        riskReward: signal.riskReward,
-        sinceEntryPercent: signal.sinceEntryPercent,
-        progressPercent: signal.progressPercent,
-    };
-
-    return Object.entries(fields).map(([key, value]) => (
-        <input key={key} type="hidden" name={key} value={value ?? ""} />
-    ));
 }
 
 function IndicatorPill({ label, value, tone, wide = false }) {
@@ -756,10 +623,9 @@ export default async function DashboardPage({ searchParams }) {
     const params = await searchParams;
     const timeframe = params?.timeframe || "15m";
     const symbol = params?.symbol || "";
-    const reanalyze = params?.reanalyze || "";
 
     const [marketDashboard, pendingCount, lockedSignals] = await Promise.all([
-        getMarketDashboard({ timeframe, symbol, reanalyze }),
+        getMarketDashboard({ timeframe, symbol }),
         session.user.role === "ADMIN"
             ? countPendingUsers()
             : 0,
@@ -787,53 +653,13 @@ export default async function DashboardPage({ searchParams }) {
 
                 <LockedSignalList lockedSignals={lockedSignals} />
 
-                <section className="mb-6 mt-6 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 sm:p-5">
-                    <form action="/dashboard" className="flex flex-col gap-3 md:flex-row md:items-center">
-                        <input type="hidden" name="timeframe" value={marketDashboard.timeframe} />
-                        <div className="flex-1">
-                            <label htmlFor="symbol-search" className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-600">
-                                Search Coin
-                            </label>
-                            <input
-                                id="symbol-search"
-                                name="symbol"
-                                defaultValue={symbol}
-                                placeholder="BTC, ETH, SOL, PEPE..."
-                                className="mt-2 h-12 w-full rounded-xl border border-zinc-800 bg-black px-4 font-chakra text-sm text-white outline-none transition placeholder:text-zinc-700 focus:border-[#B7FB5B]/50 focus:ring-2 focus:ring-[#B7FB5B]/10"
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 md:flex md:pt-7">
-                            <button
-                                type="submit"
-                                className="h-12 rounded-xl bg-[#B7FB5B] px-5 text-sm font-black text-black transition hover:bg-[#a8ec4c] active:scale-95"
-                            >
-                                Analyze
-                            </button>
-                            {symbol && (
-                                <Link
-                                    href={`/dashboard?timeframe=${marketDashboard.timeframe}`}
-                                    className="grid h-12 place-items-center rounded-xl border border-zinc-800 bg-black px-5 text-sm font-bold text-zinc-400 transition hover:text-white"
-                                >
-                                    Clear
-                                </Link>
-                            )}
-                        </div>
-                    </form>
-                    {marketDashboard.searchedSymbol && !marketDashboard.signals.some((signal) => signal.symbol === marketDashboard.searchedSymbol) && (
-                        <p className="mt-3 text-sm text-red-300">
-                            Symbol {marketDashboard.searchedSymbol} tidak ditemukan di Binance, Bybit, maupun Dexscreener.
-                        </p>
-                    )}
-                </section>
-
-                <ClearableSignalBoard
-                    updatedAt={new Date(marketDashboard.updatedAt).toLocaleTimeString("id-ID")}
-                    signalCount={marketDashboard.signals.length}
-                >
-                    {marketDashboard.signals.map((signal) => (
-                        <SignalCard key={signal.symbol} signal={signal} />
-                    ))}
-                </ClearableSignalBoard>
+                <DashboardSignalWorkspace
+                    key={marketDashboard.timeframe}
+                    initialSignals={marketDashboard.signals}
+                    initialSearchKeyword={symbol}
+                    timeframe={marketDashboard.timeframe}
+                    updatedAt={marketDashboard.updatedAt}
+                />
             </div>
         </DashboardShell>
     );

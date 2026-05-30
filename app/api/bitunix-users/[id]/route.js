@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireApiAdmin } from "@/lib/api-gateway";
 import {
     deleteBitunixUser,
     findBitunixUserByEmail,
@@ -17,6 +18,9 @@ function toPublicUser(user) {
 }
 
 export async function GET(_request, { params }) {
+    const { response } = await requireApiAdmin();
+    if (response) return response;
+
     const { id } = await params;
     const user = await findBitunixUserById(id);
 
@@ -28,6 +32,9 @@ export async function GET(_request, { params }) {
 }
 
 export async function PUT(request, { params }) {
+    const { response } = await requireApiAdmin();
+    if (response) return response;
+
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const email = body.email === undefined ? undefined : String(body.email).trim().toLowerCase();
@@ -68,6 +75,9 @@ export async function PUT(request, { params }) {
 }
 
 export async function DELETE(_request, { params }) {
+    const { response } = await requireApiAdmin();
+    if (response) return response;
+
     const { id } = await params;
     const deleted = await deleteBitunixUser(id);
 

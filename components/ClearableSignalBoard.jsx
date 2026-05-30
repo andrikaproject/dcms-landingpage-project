@@ -24,7 +24,7 @@ function ClearIcon() {
     );
 }
 
-export default function ClearableSignalBoard({ updatedAt, signalCount, children }) {
+export default function ClearableSignalBoard({ updatedAt, signalCount, controls, children }) {
     const [isCleared, setIsCleared] = useState(false);
 
     return (
@@ -54,9 +54,12 @@ export default function ClearableSignalBoard({ updatedAt, signalCount, children 
                     Signal board sudah dikosongkan untuk sesi ini. Klik Show Signals kalau mau menampilkan ulang.
                 </div>
             ) : (
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] gap-4">
-                    {children}
-                </div>
+                <>
+                    {controls}
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] gap-4">
+                        {children}
+                    </div>
+                </>
             )}
         </section>
     );

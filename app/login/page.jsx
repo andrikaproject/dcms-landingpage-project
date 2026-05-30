@@ -4,7 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useAction } from "next-safe-action/hooks";
 import { useRef, useState } from "react";
+import { validateLoginCredentials } from "@/app/actions/login";
+import { getFirstActionError } from "@/lib/action-result";
 
 export default function LoginPage() {
     const [identifier, setIdentifier] = useState("");
@@ -13,8 +16,10 @@ export default function LoginPage() {
     const [popupMessage, setPopupMessage] = useState("");
     const [isSuccess, setIsSuccess] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState("");
     const inputRef = useRef(null);
     const router = useRouter();
+    const { executeAsync: validateCredentials, isExecuting: isValidating } = useAction(validateLoginCredentials);
 
     const closePopup = () => {
         setPopupMessage("");
@@ -42,6 +47,21 @@ export default function LoginPage() {
         setIsLoading(true);
 
         try {
+            setLoadingMessage("Memvalidasi akun...");
+            const validation = await validateCredentials({
+                loginIdentifier: trimmedIdentifier,
+                password,
+            });
+
+            if (!validation?.data?.success) {
+                setError(getFirstActionError(validation, "Login gagal."));
+                setIsLoading(false);
+                setLoadingMessage("");
+                return;
+            }
+
+            setLoadingMessage("Membuka dashboard...");
+
             const result = await signIn("credentials", {
                 loginIdentifier: trimmedIdentifier,
                 uid: trimmedIdentifier,
@@ -51,21 +71,28 @@ export default function LoginPage() {
 
             if (result?.ok) {
                 setIsSuccess(true);
-                router.replace("/dashboard");
-                router.refresh();
+                setLoadingMessage("Menyiapkan dashboard...");
+                window.setTimeout(() => {
+                    router.replace("/dashboard");
+                    router.refresh();
+                }, 650);
                 return;
             }
 
-            setPopupMessage("Gagal login. Pastikan UID Bitunix atau username sudah terdaftar dan password benar.");
+            setPopupMessage("Login gagal. Silakan coba beberapa saat lagi.");
+            setLoadingMessage("");
+            setIsLoading(false);
         } catch (error) {
             setPopupMessage(
                 error.message ||
                 "Terjadi kendala saat login. Silakan coba beberapa saat lagi."
             );
-        } finally {
             setIsLoading(false);
+            setLoadingMessage("");
         }
     };
+
+    const isSubmitting = isLoading || isValidating;
 
     return (
         <main className="relative min-h-dvh overflow-hidden bg-[linear-gradient(180deg,#23252a_0%,#111315_100%)] font-nebulica text-white">
@@ -149,7 +176,10 @@ export default function LoginPage() {
                                     placeholder="6728198212 or panjoel0081"
                                     aria-describedby="loginError"
                                     value={identifier}
-                                    onChange={(event) => setIdentifier(event.target.value)}
+                                    onChange={(event) => {
+                                        setIdentifier(event.target.value);
+                                        if (error) setError("");
+                                    }}
                                     className="h-11 w-full rounded-lg border border-[#d5d7da] bg-white px-3 font-nebulica text-base font-medium leading-6 text-[#181d27] shadow-[0_1px_1px_rgba(10,13,18,0.05)] outline-none transition placeholder:text-[#717680] focus:border-[#b7fb5b] focus:shadow-[0_0_0_4px_rgba(183,251,91,0.18)]"
                                 />
                             </div>
@@ -171,7 +201,10 @@ export default function LoginPage() {
                                     autoComplete="current-password"
                                     placeholder="*********************"
                                     value={password}
-                                    onChange={(event) => setPassword(event.target.value)}
+                                    onChange={(event) => {
+                                        setPassword(event.target.value);
+                                        if (error) setError("");
+                                    }}
                                     className="h-11 w-full rounded-lg border border-[#d5d7da] bg-white px-3 font-nebulica text-base font-medium leading-6 text-[#181d27] shadow-[0_1px_1px_rgba(10,13,18,0.05)] outline-none transition placeholder:text-[#717680] focus:border-[#b7fb5b] focus:shadow-[0_0_0_4px_rgba(183,251,91,0.18)]"
                                 />
                             </div>
@@ -182,10 +215,17 @@ export default function LoginPage() {
 
                             <button
                                 type="submit"
-                                disabled={isLoading}
+                                disabled={isSubmitting}
                                 className="flex h-12 w-full items-center justify-center rounded-lg bg-[#abe957] px-4 font-nebulica text-sm font-bold leading-5 text-[#181d27] shadow-[0_1px_2px_rgba(6,161,246,0.2),inset_0_1px_2px_rgba(255,255,255,0.24)] transition hover:bg-[#b7fb5b] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-70"
                             >
-                                {isLoading ? "Signing in..." : "Sign In"}
+                                {isSubmitting ? (
+                                    <span className="flex items-center gap-2">
+                                        <span className="h-4 w-4 rounded-full border-2 border-[#181d27]/25 border-t-[#181d27] motion-safe:animate-spin" />
+                                        {loadingMessage || "Signing in..."}
+                                    </span>
+                                ) : (
+                                    "Sign In"
+                                )}
                             </button>
                         </form>
 
@@ -239,6 +279,33 @@ export default function LoginPage() {
                             Coba lagi
                         </button>
                     </section>
+                </div>
+            )}
+
+            {isSuccess && (
+                <div className="fixed inset-0 z-50 grid place-items-center bg-[#111315]/95 p-6 backdrop-blur-md transition-opacity duration-500">
+                    <div className="flex w-[min(100%,360px)] flex-col items-center gap-5 text-center">
+                        <div className="relative grid h-16 w-16 place-items-center rounded-xl bg-[#abe957] shadow-[0_0_40px_rgba(171,233,87,0.28)]">
+                            <Image
+                                src="/images/logo-dcms.svg"
+                                alt=""
+                                width={38}
+                                height={38}
+                                aria-hidden="true"
+                                className="h-10 w-10 invert"
+                            />
+                            <span className="absolute inset-0 rounded-xl border border-[#abe957]/50 motion-safe:animate-ping" />
+                        </div>
+                        <div>
+                            <p className="font-nebulica text-xl font-bold text-white">Login berhasil</p>
+                            <p className="mt-2 font-nebulica text-sm font-medium leading-6 text-[#a4a7ae]">
+                                {loadingMessage || "Menyiapkan dashboard..."}
+                            </p>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                            <div className="h-full w-2/3 rounded-full bg-[#abe957] motion-safe:animate-[loadingBar_1.2s_ease-in-out_infinite]" />
+                        </div>
+                    </div>
                 </div>
             )}
         </main>

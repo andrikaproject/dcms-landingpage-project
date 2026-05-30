@@ -1,10 +1,23 @@
 import { NextResponse } from "next/server";
 import { requestPasswordReset } from "@/lib/password-reset";
+import { checkRateLimit, getRequestIp } from "@/lib/safe-action";
 
 export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const email = String(body.email || "").trim().toLowerCase();
     const origin = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    const ip = await getRequestIp();
+    const rateLimit = checkRateLimit(`password-reset-request:${ip}:${email || "empty"}`, {
+        limit: 5,
+        windowMs: 15 * 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+        return NextResponse.json(
+            { error: `Terlalu banyak percobaan. Coba lagi dalam ${rateLimit.retryAfter} detik.` },
+            { status: 429 }
+        );
+    }
 
     try {
         const result = await requestPasswordReset({ email, origin });

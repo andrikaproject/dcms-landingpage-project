@@ -4,13 +4,16 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useAction } from "next-safe-action/hooks";
 import gsap from "gsap";
+import { registerBitunixUser } from "@/app/actions/register";
+import { getFirstActionError } from "@/lib/action-result";
 
 export default function RegisterPage() {
     const router = useRouter();
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+    const { executeAsync, isExecuting } = useAction(registerBitunixUser);
 
     useEffect(() => {
         gsap.from(".register-card", {
@@ -23,34 +26,26 @@ export default function RegisterPage() {
 
     async function handleSubmit(e) {
         e.preventDefault();
-        setLoading(true);
         setError("");
         setSuccess("");
 
         const formData = new FormData(e.target);
-        const response = await fetch("/api/bitunix-users/register", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                name: formData.get("name"),
-                uid: formData.get("uuidBitunix"),
-                email: formData.get("email"),
-                password: formData.get("password"),
-            }),
+        const result = await executeAsync({
+            name: formData.get("name"),
+            uuidBitunix: formData.get("uuidBitunix"),
+            email: formData.get("email"),
+            password: formData.get("password"),
         });
 
-        const result = await response.json();
-
-        if (!response.ok || result?.error) {
-            setError(result.error || "Registrasi gagal.");
-            setLoading(false);
-        } else if (result?.success) {
-            setSuccess(result.success);
-            // Optionally redirect after a delay
+        if (result?.data?.success) {
+            setSuccess(result.data.success);
             setTimeout(() => {
                 router.push("/login");
             }, 3000);
+            return;
         }
+
+        setError(getFirstActionError(result, "Registrasi gagal."));
     }
 
     return (
@@ -136,10 +131,10 @@ export default function RegisterPage() {
 
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={isExecuting}
                             className="w-full bg-[#B7FB5B] text-black py-3 rounded-xl font-bold mt-6 hover:bg-[#a8ec4c] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(183,251,91,0.2)]"
                         >
-                            {loading ? "Sabar ya..." : "Daftar Sekarang"}
+                            {isExecuting ? "Sabar ya..." : "Daftar Sekarang"}
                         </button>
                     </form>
 
