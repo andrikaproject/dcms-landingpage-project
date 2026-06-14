@@ -465,7 +465,8 @@ export default function DashboardSignalWorkspace({
             }
 
             setSignals((currentSignals) => {
-                const nextSignals = upsertSignal(currentSignals, payload.signal);
+                const enrichedSignal = { ...payload.signal, conservativeGate: payload.conservativeGate ?? null };
+                const nextSignals = upsertSignal(currentSignals, enrichedSignal);
                 writePersistedSignals(timeframe, getPersistableSignals(nextSignals, initialSignals));
 
                 return nextSignals;

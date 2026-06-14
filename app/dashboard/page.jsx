@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getMarketDashboard } from "@/lib/market-dashboard";
+import { evaluateOpenSnapshotsForSymbolTimeframe } from "@/lib/learning/outcome-evaluator";
 import { removeLockedSignalAction } from "@/app/actions/lock-signal";
 import { refreshLockedSignalsForUser } from "@/lib/locked-signals";
 import { countPendingUsers } from "@/lib/users";
@@ -454,14 +455,22 @@ function DashboardIntro({ session, pendingCount }) {
                     </p>
                 </div>
 
-                {session.user.role === "ADMIN" && (
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <Link
-                        href="/dashboard/admin/users"
-                        className="min-h-11 shrink-0 rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 font-chakra text-xs font-bold text-blue-300 transition hover:bg-blue-500/20"
+                        href="/dashboard/signals/history"
+                        className="min-h-11 rounded-md border border-zinc-700/60 bg-zinc-800/40 px-3 py-2 font-chakra text-xs font-bold text-zinc-300 transition hover:bg-zinc-700/40 hover:text-white"
                     >
-                        Review User ({pendingCount})
+                        Signal History
                     </Link>
-                )}
+                    {session.user.role === "ADMIN" && (
+                        <Link
+                            href="/dashboard/admin/users"
+                            className="min-h-11 rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 font-chakra text-xs font-bold text-blue-300 transition hover:bg-blue-500/20"
+                        >
+                            Review User ({pendingCount})
+                        </Link>
+                    )}
+                </div>
             </div>
         </section>
     );
@@ -631,6 +640,20 @@ export default async function DashboardPage({ searchParams }) {
             : 0,
         refreshLockedSignalsForUser(session.user.email),
     ]);
+
+    if (marketDashboard.searchedSymbol) {
+        const searchedSignal = marketDashboard.signals.find(
+            (s) => s.symbol === marketDashboard.searchedSymbol && s.marketType === "CEX"
+        );
+        if (searchedSignal?.source) {
+            evaluateOpenSnapshotsForSymbolTimeframe({
+                symbol: searchedSignal.symbol,
+                timeframe: marketDashboard.timeframe,
+                source: searchedSignal.source,
+                currentBias: searchedSignal.bias,
+            }).catch(() => {});
+        }
+    }
 
     return (
         <DashboardShell

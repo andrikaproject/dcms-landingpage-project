@@ -30,6 +30,12 @@ export default async function AdminUsersPage() {
                         <h1 className="font-nebulica text-[clamp(1.5rem,1.3rem+1vw,1.875rem)] font-bold">Management User</h1>
                         <p className="text-sm text-zinc-500">Review dan Kelola status member DCMS.</p>
                     </div>
+                    <Link
+                        href="/dashboard/admin/adaptive-gate"
+                        className="shrink-0 rounded-md border border-[#B7FB5B]/25 bg-[#B7FB5B]/10 px-3 py-2 font-chakra text-xs font-bold text-[#B7FB5B] transition hover:bg-[#B7FB5B]/20"
+                    >
+                        Adaptive Gate Observability →
+                    </Link>
                 </header>
 
                 {/* SECTION: PENDING USERS */}

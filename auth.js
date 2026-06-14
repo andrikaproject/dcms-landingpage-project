@@ -29,30 +29,47 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     }
 
                     try {
-                        const user = await findBitunixUserByIdentifier(bitunixIdentifier);
+                        const bitunixUser = await findBitunixUserByIdentifier(bitunixIdentifier);
 
-                        if (!user) {
-                            console.log("❌ BITUNIX LOGIN FAILED: UID or username not registered");
-                            return null;
+                        if (bitunixUser) {
+                            const isPasswordMatch = comparePassword(password, bitunixUser.passwordHash);
+                            if (!isPasswordMatch) {
+                                console.log("❌ BITUNIX LOGIN FAILED: Password mismatch");
+                                return null;
+                            }
+                            console.log("✅ BITUNIX LOGIN SUCCESS:", bitunixUser.uuidBitunix);
+                            return {
+                                id: bitunixUser.id,
+                                name: bitunixUser.name || `UID ${bitunixUser.uuidBitunix}`,
+                                email: bitunixUser.email,
+                                role: bitunixUser.role || "BITUNIX",
+                                uuidBitunix: bitunixUser.uuidBitunix,
+                            };
                         }
 
-                        const isPasswordMatch = comparePassword(password, user.passwordHash);
-
-                        if (!isPasswordMatch) {
-                            console.log("❌ BITUNIX LOGIN FAILED: Password mismatch");
-                            return null;
+                        // Fallback: internal User table by email (admin/staff)
+                        if (bitunixIdentifier.includes("@")) {
+                            const internalUser = await findUserByEmail(bitunixIdentifier);
+                            if (internalUser && internalUser.password) {
+                                const isPasswordMatch = comparePassword(password, internalUser.password);
+                                if (!isPasswordMatch) {
+                                    console.log("❌ INTERNAL LOGIN FAILED: Password mismatch");
+                                    return null;
+                                }
+                                console.log("✅ INTERNAL LOGIN SUCCESS:", internalUser.email, "Role:", internalUser.role);
+                                return {
+                                    id: internalUser.id,
+                                    name: internalUser.name,
+                                    email: internalUser.email,
+                                    role: internalUser.role,
+                                };
+                            }
                         }
 
-                        console.log("✅ BITUNIX LOGIN SUCCESS:", user.uuidBitunix);
-                        return {
-                            id: user.id,
-                            name: user.name || `UID ${user.uuidBitunix}`,
-                            email: user.email,
-                            role: user.role || "BITUNIX",
-                            uuidBitunix: user.uuidBitunix,
-                        };
+                        console.log("❌ LOGIN FAILED: UID, username, or email not registered");
+                        return null;
                     } catch (error) {
-                        console.error("Bitunix Login Error:", error);
+                        console.error("Login Error:", error);
                         return null;
                     }
                 }

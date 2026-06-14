@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { findBitunixUserByIdentifier } from "@/lib/bitunix-users";
+import { findUserByEmail } from "@/lib/users";
 import { getFirstActionError } from "@/lib/action-result";
 import { comparePassword } from "@/lib/utils";
 import { actionClient, PublicActionError, rateLimitAction } from "@/lib/safe-action";
@@ -32,19 +33,31 @@ export const validateLoginCredentials = actionClient
     )
     .inputSchema(loginSchema)
     .action(async ({ parsedInput }) => {
-        const user = await findBitunixUserByIdentifier(parsedInput.loginIdentifier);
+        const identifier = parsedInput.loginIdentifier;
 
-        if (!user) {
-            throw new PublicActionError(
-                "Username / UID belum melakukan register. Harap register terlebih dahulu."
-            );
+        // Primary: Bitunix user by UID or username
+        const bitunixUser = await findBitunixUserByIdentifier(identifier);
+        if (bitunixUser) {
+            if (!comparePassword(parsedInput.password, bitunixUser.passwordHash)) {
+                throw new PublicActionError("Password salah.");
+            }
+            return { success: true };
         }
 
-        if (!comparePassword(parsedInput.password, user.passwordHash)) {
-            throw new PublicActionError("Password salah.");
+        // Fallback: internal User table by email (for admin/staff accounts)
+        if (identifier.includes("@")) {
+            const internalUser = await findUserByEmail(identifier);
+            if (internalUser && internalUser.password) {
+                if (!comparePassword(parsedInput.password, internalUser.password)) {
+                    throw new PublicActionError("Password salah.");
+                }
+                return { success: true };
+            }
         }
 
-        return { success: true };
+        throw new PublicActionError(
+            "Username / UID belum melakukan register. Harap register terlebih dahulu."
+        );
     });
 
 export async function validateLoginCredentialsFromForm(formData) {
