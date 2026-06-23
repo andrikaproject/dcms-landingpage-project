@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-vm-modules --test tests/unit/*.test.js",
+    "test": "node --experimental-vm-modules --import ./tests/register-hooks.js --test tests/unit/*.test.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

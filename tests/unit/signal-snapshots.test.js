@@ -5,7 +5,7 @@ import { isLearningSignal } from "../../lib/learning/snapshot-utils.js";
 const VALID_SIGNAL = {
     marketType: "CEX",
     indicatorAvailable: true,
-    source: "BINANCE",
+    source: "BITUNIX",
     engineVersion: "v1.2",
     candleCloseTime: 1718000000000,
 };

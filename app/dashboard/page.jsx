@@ -10,6 +10,7 @@ import { countPendingUsers } from "@/lib/users";
 import DashboardShell from "@/components/DashboardShell";
 import LockSignalAutoRefresh from "@/components/LockSignalAutoRefresh";
 import DashboardSignalWorkspace from "./DashboardSignalWorkspace";
+import { buildPartialTpPlan } from "@/lib/market/partial-tp";
 
 const FONT_NEBULICA = "Nebulica, sans-serif";
 const FONT_CHAKRA = "var(--font-chakra-petch), Chakra Petch, sans-serif";
@@ -284,6 +285,41 @@ function LockedSignalList({ lockedSignals }) {
     );
 }
 
+function LockedPartialTpPlan({ signal }) {
+    const plan = buildPartialTpPlan({
+        bias: signal.bias,
+        entry: Number(signal.entry),
+        sl: Number(signal.sl),
+        tp1: Number(signal.tp1),
+        tp2: Number(signal.tp2),
+    });
+
+    if (!plan || !plan.isValid) return null;
+
+    return (
+        <div className="rounded-lg border border-white/[0.06] bg-black/15 px-3 py-2">
+            <p style={{ ...FIGMA_TEXT.textXsBoldWhite, fontSize: 10, color: "#71717a", textTransform: "uppercase" }}>
+                Partial TP Plan
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+                {plan.legs.map((leg) => (
+                    <div key={leg.level} className="flex items-center gap-1.5">
+                        <span className="rounded bg-[#8AEF5A]/15 px-1.5 py-0.5 font-chakra text-[10px] font-bold text-[#8AEF5A]">
+                            {leg.allocationPct}%
+                        </span>
+                        <span className="font-chakra text-xs text-white">
+                            {leg.level.toUpperCase()} {formatPriceLabel(leg.price)}
+                        </span>
+                    </div>
+                ))}
+            </div>
+            <p className="mt-1 font-chakra text-[10px] text-zinc-500">
+                Setelah TP1 hit → SL ke {formatPriceLabel(plan.breakevenSL)} (breakeven)
+            </p>
+        </div>
+    );
+}
+
 function LockedSignalCard({ signal }) {
     const styles = biasStyles(signal.bias);
     const sinceEntry = Number(signal.sinceEntryPercent || 0);
@@ -345,6 +381,8 @@ function LockedSignalCard({ signal }) {
                         tp: signal.tp2,
                     }}
                 />
+
+                <LockedPartialTpPlan signal={signal} />
 
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,120px),1fr))] gap-2">
                     <IndicatorPill label="RSI" value={signal.rsi ? Math.round(signal.rsi) : "-"} tone={styles.metric} />

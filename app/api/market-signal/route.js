@@ -68,7 +68,16 @@ export async function GET(request) {
                     userEmail: session.user.email,
                     signal,
                     gateResult: conservativeGate,
-                }).catch((err) => console.error("Gate log error:", err));
+                }).catch((err) => {
+                    console.warn("[gate-log-failure]", {
+                        error: err.message,
+                        snapshotId: memory.snapshotId,
+                        symbol: signal.symbol,
+                        timeframe: signal.timeframe,
+                        userEmail: session.user.email ?? "unknown",
+                        timestamp: new Date().toISOString(),
+                    });
+                });
             }
         }
 

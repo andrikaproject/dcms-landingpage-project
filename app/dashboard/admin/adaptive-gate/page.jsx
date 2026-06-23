@@ -11,6 +11,8 @@ import {
     getTopRejectionReasons,
     getTopPatterns,
     getExposureSummary,
+    getPatternReadinessStats,
+    getReadinessByTimeframe,
 } from "@/lib/admin/adaptive-gate-analytics";
 import { ADAPTIVE_GATE } from "@/lib/feature-flags";
 
@@ -134,6 +136,8 @@ export default async function AdaptiveGateObservabilityPage({ searchParams }) {
         topReasons,
         topPatterns,
         exposureSummary,
+        patternReadiness,
+        readinessByTf,
     ] = await Promise.all([
         getSnapshotSummary({ timeframe: filterTimeframe, source: filterSource }),
         getTimeframeBreakdown(),
@@ -144,6 +148,8 @@ export default async function AdaptiveGateObservabilityPage({ searchParams }) {
         getTopRejectionReasons(),
         getTopPatterns({ limit: 5 }),
         getExposureSummary(),
+        getPatternReadinessStats(),
+        getReadinessByTimeframe(),
     ]);
 
     const resolvedTotal = snapSummary.win + snapSummary.loss + snapSummary.softLoss + snapSummary.ambiguous;
@@ -152,7 +158,7 @@ export default async function AdaptiveGateObservabilityPage({ searchParams }) {
     );
 
     const TIMEFRAMES = ["1m", "15m", "1h", "4h", "1d"];
-    const SOURCES = ["BINANCE", "BYBIT"];
+    const SOURCES = ["BITUNIX", "BYBIT"];
 
     return (
         <div className="min-h-dvh bg-black p-4 font-chakra text-white sm:p-6 lg:p-8">
@@ -409,6 +415,75 @@ export default async function AdaptiveGateObservabilityPage({ searchParams }) {
                                     </tbody>
                                 </table>
                             </div>
+                        </div>
+                    )}
+                </section>
+
+                {/* Pattern Readiness */}
+                <section>
+                    <SectionTitle>Pattern Readiness — Adaptive Evidence Coverage</SectionTitle>
+                    <p className="mb-4 font-chakra text-xs text-zinc-600">
+                        Pattern dianggap <span className="text-[#B7FB5B]">Ready</span> (evidence aktif) jika memiliki ≥20 resolved outcomes.
+                        Di bawah threshold, gate hanya menggunakan manual rules.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
+                        <MetricCard
+                            label="Ready (≥20 samples)"
+                            value={fmt(patternReadiness.ready)}
+                            sub="Evidence aktif"
+                            accent
+                        />
+                        <MetricCard
+                            label="Warming (5–19)"
+                            value={fmt(patternReadiness.warming)}
+                            sub="Mendekati threshold"
+                        />
+                        <MetricCard
+                            label="Cold (1–4)"
+                            value={fmt(patternReadiness.cold)}
+                            sub="Perlu lebih banyak data"
+                        />
+                        <MetricCard
+                            label="Total Resolved"
+                            value={fmt(patternReadiness.totalResolvedSnapshots)}
+                            sub={`${fmt(patternReadiness.totalPatterns)} pattern unik`}
+                        />
+                    </div>
+
+                    {readinessByTf.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-950/50 px-6 py-8 text-center">
+                            <p className="font-chakra text-sm text-zinc-600">
+                                Belum ada resolved outcomes untuk analisis readiness.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+                            <p className="mb-3 font-chakra text-xs font-bold text-zinc-400 uppercase">Readiness per Timeframe</p>
+                            <table className="w-full font-chakra text-sm">
+                                <thead>
+                                    <tr className="border-b border-zinc-800">
+                                        <th className="py-2 text-left text-xs font-bold text-zinc-500 uppercase">Timeframe</th>
+                                        <th className="py-2 text-right text-xs font-bold text-[#B7FB5B]/70 uppercase">Ready</th>
+                                        <th className="py-2 text-right text-xs font-bold text-yellow-500/70 uppercase">Warming</th>
+                                        <th className="py-2 text-right text-xs font-bold text-zinc-500 uppercase">Cold</th>
+                                        <th className="py-2 text-right text-xs font-bold text-zinc-600 uppercase">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {readinessByTf.map((row) => {
+                                        const total = row.ready + row.warming + row.cold;
+                                        return (
+                                            <tr key={row.timeframe} className="border-b border-zinc-800/50 last:border-0">
+                                                <td className="py-2 font-bold text-white">{row.timeframe.toUpperCase()}</td>
+                                                <td className="py-2 text-right font-bold text-[#B7FB5B]">{fmt(row.ready)}</td>
+                                                <td className="py-2 text-right text-yellow-400">{fmt(row.warming)}</td>
+                                                <td className="py-2 text-right text-zinc-500">{fmt(row.cold)}</td>
+                                                <td className="py-2 text-right text-zinc-600">{fmt(total)}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     )}
                 </section>

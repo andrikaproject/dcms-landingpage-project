@@ -92,6 +92,17 @@ function biasStyles(bias) {
     };
 }
 
+function entryZoneStatusStyle(status) {
+    const map = {
+        "valid":     { label: "Entry Zone Valid",  className: "border-[#8AEF5A]/30 bg-[#8AEF5A]/10 text-[#B7FB5B]" },
+        "near-edge": { label: "Hampir Expired",    className: "border-yellow-400/30 bg-yellow-500/10 text-yellow-300" },
+        "expired":   { label: "Setup Terlewat",    className: "border-zinc-600/30 bg-zinc-700/20 text-zinc-400" },
+        "missed":    { label: "Setup Tidak Valid", className: "border-red-400/30 bg-red-500/10 text-red-300" },
+        "invalid":   { label: "Zone Invalid",      className: "border-zinc-600/30 bg-zinc-700/20 text-zinc-500" },
+    };
+    return map[status] ?? map["invalid"];
+}
+
 function formatSignedPercent(value) {
     const number = Number(value || 0);
     const sign = number > 0 ? "+" : "";
@@ -127,13 +138,36 @@ function IndicatorPill({ label, value, tone, wide = false }) {
     );
 }
 
-function SignalLevel({ label, value, align = "left" }) {
+// Terjemahan Indonesia untuk slSource / tp1Source / tp2Source.
+const LEVEL_SOURCE_LABELS = {
+    guardHVN: "HVN support",
+    supportHVN: "HVN support",
+    resistanceHVN: "HVN resistance",
+    support: "Support",
+    resistance: "Resistance",
+    val: "Value Area Low",
+    vah: "Value Area High",
+    poc: "POC",
+    nextResistance: "Resistance berikutnya",
+    nextSupport: "Support berikutnya",
+    runwayLVN: "Runway LVN",
+    "atr-fallback": "Estimasi ATR",
+};
+
+function levelSourceLabel(source) {
+    return LEVEL_SOURCE_LABELS[source] || null;
+}
+
+function SignalLevel({ label, value, align = "left", sublabel = null }) {
     const alignClass = align === "right" ? "items-end text-right" : align === "center" ? "items-center text-center" : "items-start text-left";
 
     return (
         <div className={`flex min-w-0 flex-col gap-1 ${alignClass}`}>
             <p style={FIGMA_TEXT.textXsBoldWhite}>{label}</p>
             <p className="truncate" style={FIGMA_TEXT.textXsBoldWhite}>{value}</p>
+            {sublabel && (
+                <p className="w-full truncate font-chakra text-[10px] font-normal text-zinc-500">{sublabel}</p>
+            )}
         </div>
     );
 }
@@ -190,6 +224,21 @@ function SignalProgress({ signal }) {
         return "center";
     };
 
+    // Merge labels that are within 5% of the range — they'd visually occupy the same point.
+    const MERGE_PCT = 5;
+    const sortedForGroups = [...levels]
+        .map((l) => ({ ...l, pct: getRangePercent(l.value, min, max) }))
+        .sort((a, b) => a.pct - b.pct);
+    const labelGroups = [];
+    for (const item of sortedForGroups) {
+        const last = labelGroups[labelGroups.length - 1];
+        if (last && item.pct - last.anchorPct < MERGE_PCT) {
+            last.members.push(item);
+        } else {
+            labelGroups.push({ anchorPct: item.pct, members: [item] });
+        }
+    }
+
     return (
         <div className="relative sm:h-[62px]">
             <div
@@ -233,21 +282,64 @@ function SignalProgress({ signal }) {
                 ))}
             </div>
 
-            {levels.map((level) => {
-                const percent = getRangePercent(level.value, min, max);
-                const align = labelAlign(percent);
+            {labelGroups.map((group) => {
+                const { anchorPct, members } = group;
+                const align = labelAlign(anchorPct);
                 const edgeClass = align === "left" ? "translate-x-0" : align === "right" ? "-translate-x-full" : "-translate-x-1/2";
+                const labelText = members.length > 1
+                    ? members.map((m) => m.label).join(" · ")
+                    : members[0].label;
+                const displayValue = formatPriceLabel(members[0].value);
 
                 return (
                     <div
-                        key={level.key}
+                        key={members.map((m) => m.key).join("-")}
                         className={`absolute top-7 hidden w-[112px] sm:block ${edgeClass}`}
-                        style={{ left: `${percent}%` }}
+                        style={{ left: `${anchorPct}%` }}
                     >
-                        <SignalLevel label={level.label} value={formatPriceLabel(level.value)} align={align} />
+                        <SignalLevel label={labelText} value={displayValue} align={align} />
                     </div>
                 );
             })}
+        </div>
+    );
+}
+
+function EntryZoneCompact({ entryZone }) {
+    if (!entryZone) return null;
+    const style = entryZoneStatusStyle(entryZone.status);
+    return (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-white/[0.06] bg-black/15 px-3 py-2">
+            <span className={`inline-flex shrink-0 items-center rounded border px-1.5 py-0.5 font-chakra text-[10px] font-bold uppercase ${style.className}`}>
+                {style.label}
+            </span>
+            <p className="truncate font-chakra text-xs text-zinc-400">
+                {formatPriceLabel(entryZone.low)} – {formatPriceLabel(entryZone.high)}
+            </p>
+        </div>
+    );
+}
+
+function PartialTpPlanCompact({ partialTpPlan }) {
+    if (!partialTpPlan || !partialTpPlan.isValid) return null;
+    return (
+        <div className="rounded-lg border border-white/[0.06] bg-black/15 px-3 py-2">
+            <p className="font-chakra text-[10px] font-bold uppercase text-zinc-400">Partial TP Plan</p>
+            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+                {partialTpPlan.legs.map((leg) => (
+                    <div key={leg.level} className="flex items-center gap-1.5">
+                        <span className="rounded bg-[#8AEF5A]/15 px-1.5 py-0.5 font-chakra text-[10px] font-bold text-[#8AEF5A]">
+                            {leg.allocationPct}%
+                        </span>
+                        <span className="font-chakra text-xs text-white">
+                            {leg.level.toUpperCase()} {formatPriceLabel(leg.price)}
+                        </span>
+                    </div>
+                ))}
+            </div>
+            <p className="mt-1 font-chakra text-[10px] text-zinc-500">
+                Setelah TP1 hit → SL ke {formatPriceLabel(partialTpPlan.breakevenSL)} (breakeven)
+            </p>
         </div>
     );
 }
@@ -524,7 +616,7 @@ function DetailBadge({ children, tone = "neutral" }) {
 function SignalDetailTopHeader({ signal, onClose }) {
     const pairQuote = signal.marketType === "DEX" || !signal.indicatorAvailable ? "USD" : "USDT";
     const change = Number(signal.sinceEntryPercent ?? signal.change ?? 0);
-    const sourceLabel = String(signal.source || "BINANCE").replace(/\s*perp$/i, "").toUpperCase();
+    const sourceLabel = String(signal.source || "BITUNIX").replace(/\s*perp$/i, "").toUpperCase();
 
     return (
         <div className="relative h-[236px] shrink-0 overflow-hidden bg-gradient-to-r from-[#535862] to-[#717680]">
@@ -618,6 +710,8 @@ function ConfluenceRow({ label, value }) {
 
 function SignalDetailMiniProgress({ signal }) {
     const rrLabel = signal.riskReward ? `1:${Number(signal.riskReward).toFixed(1)}` : "1:2.0";
+    const liveRR = Number(signal.liveRR);
+    const liveRRLabel = Number.isFinite(liveRR) ? `1:${liveRR.toFixed(1)}` : null;
     const riskLabel = Number(signal.riskPercent || 0) > 3 ? "Medium" : "Low";
     const progressPercent = clampPercent(Number(signal.progressPercent ?? 10));
 
@@ -627,6 +721,9 @@ function SignalDetailMiniProgress({ signal }) {
                 <div className="rounded-lg bg-white/[0.04] p-3">
                     <p className="font-chakra text-xs text-zinc-400">R:R</p>
                     <p className="mt-1 font-chakra text-xs font-medium text-white">{rrLabel}</p>
+                    {liveRRLabel && (
+                        <p className="mt-0.5 font-chakra text-[10px] text-zinc-500">Live {liveRRLabel}</p>
+                    )}
                 </div>
                 <div className="rounded-lg bg-white/[0.04] p-3">
                     <p className="font-chakra text-xs text-zinc-400">Risk</p>
@@ -646,13 +743,243 @@ function SignalDetailMiniProgress({ signal }) {
                     />
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <SignalLevel label="SL" value={formatPriceLabel(signal.sl)} />
+                    <SignalLevel label="SL" value={formatPriceLabel(signal.sl)} sublabel={levelSourceLabel(signal.slSource)} />
                     <SignalLevel label="Entry" value={formatPriceLabel(signal.entry)} />
-                    <SignalLevel label="TP1" value={formatPriceLabel(signal.tp1)} />
-                    <SignalLevel label="TP2" value={formatPriceLabel(signal.tp2 || signal.tp)} />
+                    <SignalLevel label="TP1" value={formatPriceLabel(signal.tp1)} sublabel={levelSourceLabel(signal.tp1Source)} />
+                    <SignalLevel label="TP2" value={formatPriceLabel(signal.tp2 || signal.tp)} sublabel={levelSourceLabel(signal.tp2Source)} />
                 </div>
             </div>
         </div>
+    );
+}
+
+function VpvrDetailSection({ signal }) {
+    const poc = Number(signal.poc);
+    const price = Number(signal.price);
+    const profile = Array.isArray(signal.volumeProfile) ? signal.volumeProfile : [];
+    const pocBin = profile.length > 0
+        ? profile.reduce((best, v, i) => (v > profile[best] ? i : best), 0)
+        : -1;
+
+    const priceVsPoc = Number.isFinite(price) && Number.isFinite(poc)
+        ? price > poc ? "above" : price < poc ? "below" : "at"
+        : null;
+
+    const priceVsPocColor = priceVsPoc === "above" ? "text-[#a3e635]" : priceVsPoc === "below" ? "text-[#f87171]" : "text-zinc-300";
+    const priceVsPocLabel = priceVsPoc === "above" ? "Di atas POC ↑" : priceVsPoc === "below" ? "Di bawah POC ↓" : "Di POC";
+
+    const hvn = Array.isArray(signal.volumeNodes?.hvn) ? signal.volumeNodes.hvn : [];
+    const lvn = Array.isArray(signal.volumeNodes?.lvn) ? signal.volumeNodes.lvn : [];
+    const nodeEntry = signal.nodeEntry || null;
+    const confluenceStyle = {
+        strong: { label: "Konfluensi kuat", color: "text-[#B7FB5B]" },
+        moderate: { label: "Konfluensi sedang", color: "text-amber-300" },
+        none: { label: "Tanpa konfluensi", color: "text-zinc-400" },
+    }[nodeEntry?.confluence] || null;
+
+    return (
+        <section className="mt-8">
+            <DetailSectionHeader>VPVR — Volume Profile</DetailSectionHeader>
+
+            <div className="mt-4 space-y-4">
+                {/* Mini bar chart */}
+                {profile.length > 0 && (
+                    <div className="overflow-hidden rounded-lg bg-white/[0.03] p-3">
+                        <div className="flex flex-col-reverse gap-px">
+                            {profile.map((pct, i) => {
+                                const isPoc = i === pocBin;
+                                return (
+                                    <div key={i} className="flex items-center gap-1.5" style={{ height: 6 }}>
+                                        <div
+                                            className={`h-full rounded-sm transition-all ${isPoc ? "bg-[#B7FB5B]" : "bg-[#8AEF5A]/30"}`}
+                                            style={{ width: `${Math.max(2, pct)}%` }}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <p className="mt-2 font-chakra text-[10px] text-zinc-500">
+                            ↕ {profile.length} bins · kuning = POC (volume tertinggi)
+                        </p>
+                    </div>
+                )}
+
+                {/* POC / VAH / VAL grid */}
+                <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg bg-white/[0.04] p-3">
+                        <p className="font-chakra text-xs text-zinc-400">VAH</p>
+                        <p className="mt-1 truncate font-chakra text-xs font-medium text-white">{formatPriceLabel(signal.vah)}</p>
+                        <p className="mt-0.5 font-chakra text-[10px] text-zinc-500">Value Area High</p>
+                    </div>
+                    <div className="rounded-lg border border-[#B7FB5B]/20 bg-[#B7FB5B]/5 p-3">
+                        <p className="font-chakra text-xs text-[#B7FB5B]">POC</p>
+                        <p className="mt-1 truncate font-chakra text-xs font-bold text-white">{formatPriceLabel(signal.poc)}</p>
+                        <p className="mt-0.5 font-chakra text-[10px] text-zinc-500">Point of Control</p>
+                    </div>
+                    <div className="rounded-lg bg-white/[0.04] p-3">
+                        <p className="font-chakra text-xs text-zinc-400">VAL</p>
+                        <p className="mt-1 truncate font-chakra text-xs font-medium text-white">{formatPriceLabel(signal.val)}</p>
+                        <p className="mt-0.5 font-chakra text-[10px] text-zinc-500">Value Area Low</p>
+                    </div>
+                </div>
+
+                {/* Current price vs POC */}
+                {priceVsPoc && (
+                    <div className="flex items-center justify-between rounded-lg border border-white/[0.04] bg-white/[0.02] px-4 py-3">
+                        <p className="font-chakra text-xs text-zinc-400">Harga saat ini</p>
+                        <p className={`font-chakra text-xs font-bold ${priceVsPocColor}`}>
+                            {formatPriceLabel(signal.price)} — {priceVsPocLabel}
+                        </p>
+                    </div>
+                )}
+
+                {/* Volume Nodes — HVN / LVN */}
+                {(hvn.length > 0 || lvn.length > 0) && (
+                    <div className="space-y-3 rounded-lg border border-white/[0.04] bg-white/[0.02] p-3">
+                        <div className="flex items-center justify-between">
+                            <p className="font-chakra text-xs font-medium text-zinc-300">Volume Nodes</p>
+                            {confluenceStyle && (
+                                <span className={`font-chakra text-[10px] font-bold ${confluenceStyle.color}`}>
+                                    {confluenceStyle.label}
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            {/* HVN — support/resistance kuat */}
+                            <div className="space-y-1.5">
+                                <p className="font-chakra text-[10px] uppercase tracking-wide text-[#8AEF5A]">HVN · Magnet</p>
+                                {hvn.length === 0 && <p className="font-chakra text-[10px] text-zinc-600">—</p>}
+                                {hvn.map((n, i) => (
+                                    <div key={`hvn-${i}`} className="flex items-center justify-between gap-2">
+                                        <span className="font-chakra text-xs text-white">{formatPriceLabel(n.price)}</span>
+                                        <span className="font-chakra text-[10px] text-zinc-500">{n.strength}%</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* LVN — zona gerak cepat */}
+                            <div className="space-y-1.5">
+                                <p className="font-chakra text-[10px] uppercase tracking-wide text-amber-400">LVN · Runway</p>
+                                {lvn.length === 0 && <p className="font-chakra text-[10px] text-zinc-600">—</p>}
+                                {lvn.map((n, i) => (
+                                    <div key={`lvn-${i}`} className="flex items-center justify-between gap-2">
+                                        <span className="font-chakra text-xs text-white">{formatPriceLabel(n.price)}</span>
+                                        <span className="font-chakra text-[10px] text-zinc-500">{n.strength}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {nodeEntry && (nodeEntry.guardHVN || nodeEntry.runwayLVN) && (
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-white/[0.04] pt-2 font-chakra text-[10px] text-zinc-400">
+                                {nodeEntry.guardHVN && (
+                                    <span>Pelindung HVN: <span className="text-white">{formatPriceLabel(nodeEntry.guardHVN)}</span></span>
+                                )}
+                                {nodeEntry.runwayLVN && (
+                                    <span>Target runway LVN: <span className="text-white">{formatPriceLabel(nodeEntry.runwayLVN)}</span></span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </section>
+    );
+}
+
+function EntryZoneDetailSection({ entryZone, currentPrice }) {
+    const style = entryZoneStatusStyle(entryZone.status);
+    const low = Number(entryZone.low);
+    const high = Number(entryZone.high);
+    const price = Number(currentPrice);
+    const rangeMin = Math.min(low, Number.isFinite(price) ? price : low);
+    const rangeMax = Math.max(high, Number.isFinite(price) ? price : high);
+    const zoneLeftPct = getRangePercent(low, rangeMin, rangeMax);
+    const zoneWidthPct = getRangePercent(high, rangeMin, rangeMax) - zoneLeftPct;
+    const pricePct = getRangePercent(price, rangeMin, rangeMax);
+
+    return (
+        <section className="mt-8">
+            <DetailSectionHeader>Entry Zone</DetailSectionHeader>
+            <div className="mt-4 space-y-4">
+                <span className={`inline-flex items-center rounded-full border px-3 py-0.5 font-chakra text-xs font-bold uppercase ${style.className}`}>
+                    {style.label}
+                </span>
+
+                <div className="relative h-2.5 rounded-full bg-[#334155]">
+                    <div
+                        className="absolute h-full rounded-full bg-[#8AEF5A]/30"
+                        style={{ left: `${zoneLeftPct}%`, width: `${Math.max(2, zoneWidthPct)}%` }}
+                    />
+                    {Number.isFinite(price) && (
+                        <span
+                            className="absolute top-1/2 z-10 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#B7FB5B]"
+                            style={{ left: `${pricePct}%` }}
+                            title={`Current: ${formatPriceLabel(price)}`}
+                        />
+                    )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg bg-white/[0.04] p-3">
+                        <p className="font-chakra text-xs text-zinc-400">Low</p>
+                        <p className="mt-1 truncate font-chakra text-xs font-medium text-white">{formatPriceLabel(entryZone.low)}</p>
+                    </div>
+                    <div className="rounded-lg bg-white/[0.04] p-3">
+                        <p className="font-chakra text-xs text-zinc-400">Mid</p>
+                        <p className="mt-1 truncate font-chakra text-xs font-medium text-white">{formatPriceLabel(entryZone.mid)}</p>
+                    </div>
+                    <div className="rounded-lg bg-white/[0.04] p-3">
+                        <p className="font-chakra text-xs text-zinc-400">High</p>
+                        <p className="mt-1 truncate font-chakra text-xs font-medium text-white">{formatPriceLabel(entryZone.high)}</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+}
+
+function PartialTpPlanDetailSection({ plan }) {
+    return (
+        <section className="mt-8">
+            <DetailSectionHeader>Partial TP Plan</DetailSectionHeader>
+
+            {plan.warning === "SL_TOO_CLOSE" && (
+                <div className="mt-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2">
+                    <p className="font-chakra text-xs font-bold text-yellow-300">⚠ SL terlalu dekat — pertimbangkan ulang risk management</p>
+                </div>
+            )}
+
+            <div className="mt-3 space-y-2">
+                {plan.legs.map((leg, index) => (
+                    <div key={leg.level} className="flex items-center gap-3 rounded-lg bg-white/[0.04] px-4 py-3">
+                        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#8AEF5A]/15">
+                            <span className="font-chakra text-xs font-bold text-[#8AEF5A]">{index + 1}</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="font-chakra text-xs font-bold text-white">
+                                {leg.level.toUpperCase()} — Exit {leg.allocationPct}%
+                            </p>
+                            <p className="font-chakra text-xs text-zinc-400">{formatPriceLabel(leg.price)}</p>
+                        </div>
+                        {leg.level === "tp1" && (
+                            <p className="shrink-0 text-right font-chakra text-[10px] text-zinc-500">
+                                Setelah hit →<br />pindah SL ke BE
+                            </p>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            <div className="mt-3 rounded-lg border border-white/[0.04] bg-white/[0.02] px-4 py-3">
+                <p className="font-chakra text-xs text-zinc-400">
+                    Breakeven SL:{" "}
+                    <span className="font-bold text-white">{formatPriceLabel(plan.breakevenSL)}</span>
+                    {" "}— aktif setelah TP1 tercapai
+                </p>
+            </div>
+        </section>
     );
 }
 
@@ -747,6 +1074,16 @@ function SignalDetailSideout({ signal, onClose }) {
 
                             <SignalDetailMiniProgress signal={signal} />
                         </section>
+
+                        {signal.poc && (
+                            <VpvrDetailSection signal={signal} />
+                        )}
+                        {signal.entryZone && (
+                            <EntryZoneDetailSection entryZone={signal.entryZone} currentPrice={signal.price} />
+                        )}
+                        {signal.partialTpPlan?.isValid && (
+                            <PartialTpPlanDetailSection plan={signal.partialTpPlan} />
+                        )}
 
                         <section className="mt-8 pb-8">
                             <p className="font-chakra text-xs font-bold uppercase text-white">Key Confluence</p>
@@ -847,6 +1184,13 @@ function SignalCard({ signal, selectedSymbol, cooldownRemaining, error, isConser
                 {showConservative && <ConservativeModePanel gate={signal.conservativeGate} />}
 
                 <SignalProgress signal={signal} />
+
+                {!isDex && (signal.entryZone || (signal.partialTpPlan?.isValid)) && (
+                    <div className="flex flex-col gap-2">
+                        <EntryZoneCompact entryZone={signal.entryZone} />
+                        <PartialTpPlanCompact partialTpPlan={signal.partialTpPlan} />
+                    </div>
+                )}
 
                 {isDex && (
                     <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
