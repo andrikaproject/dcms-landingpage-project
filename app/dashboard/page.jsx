@@ -9,6 +9,7 @@ import { refreshLockedSignalsForUser } from "@/lib/locked-signals";
 import { countPendingUsers } from "@/lib/users";
 import DashboardShell from "@/components/DashboardShell";
 import LockSignalAutoRefresh from "@/components/LockSignalAutoRefresh";
+import LockedSignalRefreshButton from "@/components/LockedSignalRefreshButton";
 import DashboardSignalWorkspace from "./DashboardSignalWorkspace";
 import { buildPartialTpPlan } from "@/lib/market/partial-tp";
 
@@ -267,7 +268,10 @@ function LockedSignalList({ lockedSignals }) {
                     <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-600">Lock Signal</p>
                     <h2 className="mt-1 font-nebulica text-[clamp(1.25rem,1.1rem+0.75vw,1.5rem)] font-bold text-white">Active Locked Signals</h2>
                 </div>
-                <p className="font-chakra text-xs text-zinc-500">Auto refresh setiap 5 menit. Hit TP/SL akan keluar dari list.</p>
+                <div className="flex items-center gap-3">
+                    <p className="font-chakra text-xs text-zinc-500">Auto refresh setiap 5 menit.</p>
+                    <LockedSignalRefreshButton />
+                </div>
             </div>
 
             {lockedSignals.length === 0 ? (
@@ -568,11 +572,14 @@ function CoinSummaryCard({ coin, name, value, change24h }) {
     );
 }
 
-function MiniMetricCard({ label, value, tone }) {
+function MiniMetricCard({ label, value, tone, meta }) {
     return (
         <div className="flex min-h-[54px] min-w-0 flex-1 flex-col justify-center gap-1 rounded-xl bg-gradient-to-b from-[#222129] to-[#100f15] px-3 py-2">
             <p className="truncate" style={{ ...FIGMA_TEXT.textXsMedium, color: "#FFFFFF" }}>{label}</p>
             <p className={tone} style={FIGMA_TEXT.textXsMedium}>{value}</p>
+            {meta && (
+                <p className="truncate font-chakra text-[10px] font-bold uppercase leading-3 text-zinc-500">{meta}</p>
+            )}
         </div>
     );
 }
@@ -617,6 +624,7 @@ function TimeframeMenu({ current, symbol }) {
 }
 
 function DashboardOverview({ marketDashboard, session, pendingCount, symbol }) {
+    const usdtDominanceTrendRegime = marketDashboard.usdtDominanceTrend?.regime || "UNKNOWN";
     const regimeText = marketDashboard.usdtDominance.market
         ? marketDashboard.usdtDominance.market.toLowerCase().replace(/^market\s*/, "")
         : "neutral";
@@ -636,7 +644,12 @@ function DashboardOverview({ marketDashboard, session, pendingCount, symbol }) {
                     style={{ boxSizing: "border-box" }}
                 >
                     <div className="contents">
-                        <MiniMetricCard label="USDT.D" value={`${marketDashboard.usdtDominance.value.toFixed(2)}%`} tone="text-[#bef264]" />
+                        <MiniMetricCard
+                            label="USDT.D"
+                            value={`${marketDashboard.usdtDominance.value.toFixed(2)}%`}
+                            tone="text-[#bef264]"
+                            meta={usdtDominanceTrendRegime}
+                        />
                         <MiniMetricCard label="LONG" value={marketDashboard.stats.long} tone="text-[#6ee7b7]" />
                         <MiniMetricCard label="NEUTRAL" value={marketDashboard.stats.neutral} tone="text-[#38bdf8]" />
                         <MiniMetricCard label="SHORT" value={marketDashboard.stats.short} tone="text-[#fca5a5]" />

@@ -166,6 +166,47 @@ describe("signal-generator — integrasi: field baru hadir", () => {
     });
 });
 
+describe("signal-generator — USDT.D trend context", () => {
+    test("marketContext kosong tetap aman", () => {
+        const signal = generateSignalFromCandles({
+            ...SIGNAL_INPUT,
+            marketContext: undefined,
+        });
+
+        assert.equal(signal.usdtDominanceTrend, null);
+        assert.equal(typeof signal.score, "number");
+    });
+
+    test("usdtDominanceTrend diteruskan ke output", () => {
+        const usdtDominanceTrend = {
+            score: 2.5,
+            regime: "RISK_ON",
+            alignment: "BULLISH_CRYPTO",
+            warnings: [],
+            components: {},
+        };
+        const signal = generateSignalFromCandles({
+            ...SIGNAL_INPUT,
+            marketContext: { usdtDomScore: 2.5, usdtDominanceTrend },
+        });
+
+        assert.deepEqual(signal.usdtDominanceTrend, usdtDominanceTrend);
+    });
+
+    test("usdtDomScore tetap memengaruhi score", () => {
+        const neutral = generateSignalFromCandles({
+            ...SIGNAL_INPUT,
+            marketContext: { usdtDomScore: 0 },
+        });
+        const boosted = generateSignalFromCandles({
+            ...SIGNAL_INPUT,
+            marketContext: { usdtDomScore: 2.5 },
+        });
+
+        assert.equal(boosted.score - neutral.score, 2.5);
+    });
+});
+
 describe("signal-generator — integrasi: long/short/neutral scenario", () => {
     test("scenario neutral: entryZone dan partialTpPlan null", () => {
         // Buat candle yang menghasilkan score netral (harga sangat dekat semua EMA)

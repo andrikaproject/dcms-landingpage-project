@@ -68,6 +68,15 @@ function formatVolume(value) {
     return `$${number.toFixed(0)}`;
 }
 
+function formatTimeAgo(timestamp) {
+    if (!timestamp) return null;
+    const diff = Date.now() - new Date(timestamp).getTime();
+    if (diff < 60_000) return "Just now";
+    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m Ago`;
+    if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h Ago`;
+    return `${Math.floor(diff / 86_400_000)}d Ago`;
+}
+
 function biasStyles(bias) {
     if (bias === "long") {
         return {
@@ -465,6 +474,25 @@ function ArrowUpMiniIcon() {
     );
 }
 
+function ArrowDownMiniIcon() {
+    return (
+        <svg
+            className="size-3"
+            viewBox="0 0 12 12"
+            fill="none"
+            aria-hidden="true"
+        >
+            <path
+                d="M6 2.5v7M6 9.5 2.75 6.25M6 9.5l3.25-3.25"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+
 function ChevronDownIcon() {
     return (
         <svg
@@ -590,10 +618,50 @@ function HeaderChangeBadge({ value }) {
                 : "border-red-300/30 bg-red-500/15 text-red-200"
                 }`}
         >
-            <ArrowUpMiniIcon />
+            {isPositive ? <ArrowUpMiniIcon /> : <ArrowDownMiniIcon />}
             {formatSignedPercent(number)}
         </span>
     );
+}
+
+function parseTimeframeMs(tf) {
+    const str = String(tf || "15m").toLowerCase();
+    const num = parseInt(str, 10) || 1;
+    if (str.endsWith("d")) return num * 86400 * 1000;
+    if (str.endsWith("h")) return num * 3600 * 1000;
+    if (str.endsWith("m")) return num * 60 * 1000;
+    if (str.endsWith("s")) return num * 1000;
+    return 15 * 60 * 1000;
+}
+
+function formatCountdown(ms) {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    const mm = String(m).padStart(2, "0");
+    const ss = String(s).padStart(2, "0");
+    if (h > 0) return `${String(h).padStart(2, "0")}:${mm}:${ss}`;
+    return `${mm}:${ss}`;
+}
+
+function CandleCountdown({ timeframe }) {
+    const tfMs = parseTimeframeMs(timeframe);
+    const [remaining, setRemaining] = useState(() => {
+        const now = Date.now();
+        return Math.ceil(now / tfMs) * tfMs - now;
+    });
+
+    useEffect(() => {
+        const tick = () => {
+            const now = Date.now();
+            setRemaining(Math.ceil(now / tfMs) * tfMs - now);
+        };
+        const timer = setInterval(tick, 1000);
+        return () => clearInterval(timer);
+    }, [tfMs]);
+
+    return <span>Close in {formatCountdown(remaining)}</span>;
 }
 
 function DetailBadge({ children, tone = "neutral" }) {
@@ -642,12 +710,14 @@ function SignalDetailTopHeader({ signal, onClose }) {
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-chakra text-lg font-bold leading-7 text-white">
                             <span>{formatDetailTimeframe(signal.timeframe)}</span>
                             <span>{sourceLabel}</span>
-                            <span>Close in 01:22</span>
+                            <CandleCountdown timeframe={signal.timeframe} />
                         </div>
-                        <p className="mt-36 font-chakra text-xs font-medium leading-4 text-white">
-                            <span>Updated Signal </span>
-                            <span className="font-bold text-[#3CCB7F]">2m Ago</span>
-                        </p>
+                        {formatTimeAgo(signal.updatedAt) && (
+                            <p className="mt-36 font-chakra text-xs font-medium leading-4 text-white">
+                                <span>Updated Signal </span>
+                                <span className="font-bold text-[#3CCB7F]">{formatTimeAgo(signal.updatedAt)}</span>
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -754,9 +824,44 @@ function SignalDetailMiniProgress({ signal }) {
 }
 
 function VpvrDetailSection({ signal }) {
-    const poc = Number(signal.poc);
     const price = Number(signal.price);
-    const profile = Array.isArray(signal.volumeProfile) ? signal.volumeProfile : [];
+    const hvn = Array.isArray(signal.volumeNodes?.hvn) ? signal.volumeNodes.hvn : [];
+    const lvn = Array.isArray(signal.volumeNodes?.lvn) ? signal.volumeNodes.lvn : [];
+    const nodeEntry = signal.nodeEntry || null;
+    const confluenceStyle = {
+        strong: { label: "Konfluensi kuat", color: "text-[#B7FB5B]" },
+        moderate: { label: "Konfluensi sedang", color: "text-amber-300" },
+        none: { label: "Tanpa konfluensi", color: "text-zinc-400" },
+    }[nodeEntry?.confluence] || null;
+
+    const [period, setPeriod] = useState("24h");
+    const [vpvrData, setVpvrData] = useState(null);
+    const [loadingVpvr, setLoadingVpvr] = useState(true);
+    const [hoveredBin, setHoveredBin] = useState(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        Promise.resolve().then(() => {
+            if (!cancelled) {
+                setLoadingVpvr(true);
+                setHoveredBin(null);
+            }
+        });
+        fetch(`/api/vpvr?symbol=${signal.symbol}&period=${period}`)
+            .then((r) => r.json())
+            .then((data) => { if (!cancelled) { setVpvrData(data); setLoadingVpvr(false); } })
+            .catch(() => { if (!cancelled) setLoadingVpvr(false); });
+        return () => { cancelled = true; };
+    }, [signal.symbol, period]);
+
+    const poc = Number(vpvrData?.poc ?? signal.poc);
+    const vah = Number(vpvrData?.vah ?? signal.vah);
+    const val = Number(vpvrData?.val ?? signal.val);
+    const profile = Array.isArray(vpvrData?.volumeProfile) ? vpvrData.volumeProfile
+        : (Array.isArray(signal.volumeProfile) ? signal.volumeProfile : []);
+    const profileMin = Number(vpvrData?.profileMin ?? signal.profileMin);
+    const profileMax = Number(vpvrData?.profileMax ?? signal.profileMax);
+
     const pocBin = profile.length > 0
         ? profile.reduce((best, v, i) => (v > profile[best] ? i : best), 0)
         : -1;
@@ -768,38 +873,112 @@ function VpvrDetailSection({ signal }) {
     const priceVsPocColor = priceVsPoc === "above" ? "text-[#a3e635]" : priceVsPoc === "below" ? "text-[#f87171]" : "text-zinc-300";
     const priceVsPocLabel = priceVsPoc === "above" ? "Di atas POC ↑" : priceVsPoc === "below" ? "Di bawah POC ↓" : "Di POC";
 
-    const hvn = Array.isArray(signal.volumeNodes?.hvn) ? signal.volumeNodes.hvn : [];
-    const lvn = Array.isArray(signal.volumeNodes?.lvn) ? signal.volumeNodes.lvn : [];
-    const nodeEntry = signal.nodeEntry || null;
-    const confluenceStyle = {
-        strong: { label: "Konfluensi kuat", color: "text-[#B7FB5B]" },
-        moderate: { label: "Konfluensi sedang", color: "text-amber-300" },
-        none: { label: "Tanpa konfluensi", color: "text-zinc-400" },
-    }[nodeEntry?.confluence] || null;
+    const hasRange = Number.isFinite(profileMin) && Number.isFinite(profileMax) && profileMax > profileMin;
+    const profileStep = hasRange ? (profileMax - profileMin) / profile.length : 0;
+
+    const periodLabel = period === "weekly"
+        ? `~${vpvrData?.candleCount ?? "–"} minggu (${vpvrData?.rawDailyCount ?? "–"} hari)`
+        : `${vpvrData?.candleCount ?? "–"} candle 15m · 24 jam terakhir`;
+
+    function binPrice(i) {
+        return profileMin + i * profileStep + profileStep / 2;
+    }
+
+    function binLabel(i) {
+        const isPoc = i === pocBin;
+        const inVA = hasRange
+            ? binPrice(i) >= val && binPrice(i) <= vah
+            : false;
+        if (isPoc) return "POC";
+        if (inVA) return "Value Area";
+        return null;
+    }
 
     return (
         <section className="mt-8">
-            <DetailSectionHeader>VPVR — Volume Profile</DetailSectionHeader>
+            {/* Header + toggle */}
+            <div className="flex items-center justify-between gap-3">
+                <h3 className="font-chakra text-sm font-bold text-white">VPVR — Volume Profile</h3>
+                <div className="flex items-center gap-1 rounded-md border border-white/[0.06] bg-black/20 p-0.5">
+                    {["24h", "weekly"].map((p) => (
+                        <button
+                            key={p}
+                            type="button"
+                            onClick={() => setPeriod(p)}
+                            className={`rounded px-2.5 py-1 font-chakra text-[10px] font-bold uppercase transition ${
+                                period === p
+                                    ? "bg-[#B7FB5B]/20 text-[#B7FB5B]"
+                                    : "text-zinc-500 hover:text-zinc-300"
+                            }`}
+                        >
+                            {p === "24h" ? "24H" : "Weekly"}
+                        </button>
+                    ))}
+                </div>
+            </div>
 
             <div className="mt-4 space-y-4">
-                {/* Mini bar chart */}
-                {profile.length > 0 && (
+                {/* Mini bar chart with hover */}
+                {loadingVpvr ? (
+                    <div className="flex flex-col-reverse gap-px overflow-hidden rounded-lg bg-white/[0.03] p-3" style={{ height: 196 }}>
+                        {Array.from({ length: 24 }).map((_, i) => (
+                            <div key={i} className="flex items-center" style={{ height: 7 }}>
+                                <div
+                                    className="h-[5px] animate-pulse rounded-sm bg-white/[0.06]"
+                                    style={{ width: `${24 + (i % 7) * 8}%` }}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                ) : profile.length > 0 && (
                     <div className="overflow-hidden rounded-lg bg-white/[0.03] p-3">
-                        <div className="flex flex-col-reverse gap-px">
+                        {/* Tooltip */}
+                        <div className={`mb-2 flex items-center justify-between transition-opacity ${hoveredBin !== null ? "opacity-100" : "opacity-0 pointer-events-none"}`} style={{ minHeight: 28 }}>
+                            {hoveredBin !== null && (
+                                <>
+                                    <span className="font-chakra text-[10px] text-zinc-400">
+                                        {binLabel(hoveredBin) && (
+                                            <span className={`mr-1.5 rounded px-1 py-0.5 text-[9px] font-bold ${hoveredBin === pocBin ? "bg-[#B7FB5B]/20 text-[#B7FB5B]" : "bg-white/10 text-zinc-300"}`}>
+                                                {binLabel(hoveredBin)}
+                                            </span>
+                                        )}
+                                        Volume {profile[hoveredBin]}%
+                                    </span>
+                                    <span className="font-chakra text-xs font-bold text-white">
+                                        {hasRange ? formatPriceLabel(binPrice(hoveredBin)) : "–"}
+                                    </span>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="flex flex-col-reverse" onMouseLeave={() => setHoveredBin(null)}>
                             {profile.map((pct, i) => {
                                 const isPoc = i === pocBin;
+                                const isHovered = hoveredBin === i;
                                 return (
-                                    <div key={i} className="flex items-center gap-1.5" style={{ height: 6 }}>
+                                    <div
+                                        key={i}
+                                        className="flex cursor-crosshair items-center"
+                                        style={{ height: 7 }}
+                                        onMouseEnter={() => setHoveredBin(i)}
+                                    >
                                         <div
-                                            className={`h-full rounded-sm transition-all ${isPoc ? "bg-[#B7FB5B]" : "bg-[#8AEF5A]/30"}`}
+                                            className={`h-[5px] rounded-sm transition-all duration-75 ${
+                                                isPoc ? "bg-[#B7FB5B]"
+                                                : isHovered ? "bg-[#8AEF5A]/80"
+                                                : "bg-[#8AEF5A]/30"
+                                            }`}
                                             style={{ width: `${Math.max(2, pct)}%` }}
                                         />
+                                        {isHovered && (
+                                            <div className="ml-1.5 h-px flex-1 border-t border-dashed border-white/10" />
+                                        )}
                                     </div>
                                 );
                             })}
                         </div>
                         <p className="mt-2 font-chakra text-[10px] text-zinc-500">
-                            ↕ {profile.length} bins · kuning = POC (volume tertinggi)
+                            ↕ {profile.length} bins · {periodLabel} · kuning = POC · hover untuk harga
                         </p>
                     </div>
                 )}
@@ -808,17 +987,17 @@ function VpvrDetailSection({ signal }) {
                 <div className="grid grid-cols-3 gap-2">
                     <div className="rounded-lg bg-white/[0.04] p-3">
                         <p className="font-chakra text-xs text-zinc-400">VAH</p>
-                        <p className="mt-1 truncate font-chakra text-xs font-medium text-white">{formatPriceLabel(signal.vah)}</p>
+                        <p className="mt-1 truncate font-chakra text-xs font-medium text-white">{formatPriceLabel(vah)}</p>
                         <p className="mt-0.5 font-chakra text-[10px] text-zinc-500">Value Area High</p>
                     </div>
                     <div className="rounded-lg border border-[#B7FB5B]/20 bg-[#B7FB5B]/5 p-3">
                         <p className="font-chakra text-xs text-[#B7FB5B]">POC</p>
-                        <p className="mt-1 truncate font-chakra text-xs font-bold text-white">{formatPriceLabel(signal.poc)}</p>
+                        <p className="mt-1 truncate font-chakra text-xs font-bold text-white">{formatPriceLabel(poc)}</p>
                         <p className="mt-0.5 font-chakra text-[10px] text-zinc-500">Point of Control</p>
                     </div>
                     <div className="rounded-lg bg-white/[0.04] p-3">
                         <p className="font-chakra text-xs text-zinc-400">VAL</p>
-                        <p className="mt-1 truncate font-chakra text-xs font-medium text-white">{formatPriceLabel(signal.val)}</p>
+                        <p className="mt-1 truncate font-chakra text-xs font-medium text-white">{formatPriceLabel(val)}</p>
                         <p className="mt-0.5 font-chakra text-[10px] text-zinc-500">Value Area Low</p>
                     </div>
                 </div>
@@ -828,7 +1007,7 @@ function VpvrDetailSection({ signal }) {
                     <div className="flex items-center justify-between rounded-lg border border-white/[0.04] bg-white/[0.02] px-4 py-3">
                         <p className="font-chakra text-xs text-zinc-400">Harga saat ini</p>
                         <p className={`font-chakra text-xs font-bold ${priceVsPocColor}`}>
-                            {formatPriceLabel(signal.price)} — {priceVsPocLabel}
+                            {formatPriceLabel(price)} — {priceVsPocLabel}
                         </p>
                     </div>
                 )}
@@ -983,6 +1162,203 @@ function PartialTpPlanDetailSection({ plan }) {
     );
 }
 
+function deriveSignalBadges(signal) {
+    const badges = [];
+    const sinceEntry = Number(signal.sinceEntryPercent ?? 0);
+    const rsi = Number(signal.rsi);
+    const ezStatus = signal.entryZone?.status;
+    if (ezStatus === "expired" || ezStatus === "missed" || Math.abs(sinceEntry) > 2) {
+        badges.push({ label: "Late Entry", tone: "late" });
+    } else if (ezStatus === "valid" || ezStatus === "near-edge") {
+        badges.push({ label: "Wait Retest", tone: "warning" });
+    }
+
+    if (Number.isFinite(rsi)) {
+        if (rsi > 70) badges.push({ label: "RSI Overbought", tone: "short" });
+        else if (rsi < 30) badges.push({ label: "RSI Oversold", tone: "long" });
+        else badges.push({ label: "RSI Neutral", tone: "neutral" });
+    }
+
+    return badges;
+}
+
+function deriveSignalNarrative(signal) {
+    const isShort = signal.bias === "short";
+    const isLong = signal.bias === "long";
+    const rsi = Number(signal.rsi);
+    const emaFast = Number(signal.emaFast);
+    const emaSlow = Number(signal.emaSlow);
+    const fastPeriod = signal.fastPeriod || 21;
+    const slowPeriod = signal.slowPeriod || 50;
+    const ezStatus = signal.entryZone?.status;
+
+    const emaAligned = Number.isFinite(emaFast) && Number.isFinite(emaSlow)
+        ? (isShort ? emaFast < emaSlow : emaFast > emaSlow)
+        : null;
+
+    const direction = isShort ? "Bearish" : isLong ? "Bullish" : "Neutral";
+
+    const emaPart = emaAligned === null ? null
+        : emaAligned
+            ? `EMA${fastPeriod} aligned ${isShort ? "below" : "above"} EMA${slowPeriod} — structure confirms bias.`
+            : `EMA${fastPeriod} still ${isShort ? "above" : "below"} EMA${slowPeriod} — wait for alignment.`;
+
+    const rsiPart = Number.isFinite(rsi)
+        ? isShort && rsi < 50 ? `RSI ${Math.round(rsi)} confirms bearish pressure.`
+        : isShort && rsi >= 50 ? `RSI ${Math.round(rsi)} elevated — watch for reversal before shorting.`
+        : isLong && rsi > 50 ? `RSI ${Math.round(rsi)} supports bullish continuation.`
+        : isLong && rsi <= 50 ? `RSI ${Math.round(rsi)} — oversold zone, watch for bounce.`
+        : `RSI ${Math.round(rsi)}.`
+        : null;
+
+    const pocPart = signal.poc
+        ? `Price must hold ${isShort ? "below" : "above"} POC (${formatPriceLabel(signal.poc)}) for continuation.`
+        : null;
+
+    const entryPart = ezStatus === "valid" || ezStatus === "near-edge"
+        ? isShort
+            ? "Entry locked until retest rejection confirms seller control."
+            : "Entry locked until breakout confirmation with buyer strength."
+        : ezStatus === "expired" || ezStatus === "missed"
+            ? "Setup may have been missed — monitor for next entry opportunity."
+            : null;
+
+    return [`${direction} continuation setup.`, emaPart, rsiPart, pocPart, entryPart]
+        .filter(Boolean)
+        .join(" ");
+}
+
+function deriveDecisionSummary(signal) {
+    const isShort = signal.bias === "short";
+    const isLong = signal.bias === "long";
+    const rsi = Number(signal.rsi);
+    const stochK = Number(signal.stochK);
+    const stochD = Number(signal.stochD);
+    const emaFast = Number(signal.emaFast);
+    const emaSlow = Number(signal.emaSlow);
+    const ezStatus = signal.entryZone?.status;
+
+    const emaAligned = Number.isFinite(emaFast) && Number.isFinite(emaSlow)
+        ? (isShort ? emaFast < emaSlow : emaFast > emaSlow)
+        : true;
+
+    let directAction = "Wait & Monitor";
+    if (ezStatus === "expired" || ezStatus === "missed") directAction = "Stand Aside";
+    else if (!emaAligned) directAction = "Wait EMA Alignment";
+    else if (ezStatus === "valid") directAction = "Wait Trigger";
+
+    const triggerNeeded = isShort ? "Retest Rejection"
+        : isLong ? "Break Confirmation"
+        : "Directional Signal";
+
+    let score = 0;
+    if (emaAligned) score++;
+    if (ezStatus === "valid") score++;
+    if (Number.isFinite(rsi)) {
+        if (isShort && rsi > 40 && rsi < 70) score++;
+        else if (isLong && rsi > 30 && rsi < 65) score++;
+    }
+    if (Number.isFinite(stochK) && Number.isFinite(stochD)) {
+        if (isShort && stochK < stochD) score++;
+        else if (isLong && stochK > stochD) score++;
+    }
+    const confidence = score >= 3 ? "High" : score >= 2 ? "Medium" : "Low";
+
+    let mainConflict = "None Detected";
+    if (!emaAligned) mainConflict = "EMA Not Aligned";
+    else if (isShort && Number.isFinite(rsi) && rsi < 40) mainConflict = "RSI Oversold vs Short";
+    else if (isLong && Number.isFinite(rsi) && rsi > 65) mainConflict = "RSI Overbought vs Long";
+    else if (ezStatus === "expired") mainConflict = "Entry Zone Expired";
+    else if (ezStatus === "missed") mainConflict = "Setup Missed";
+    else if (Number.isFinite(stochK) && Number.isFinite(stochD)) {
+        if (isShort && stochK > stochD) mainConflict = "Stoch Rising vs Short";
+        else if (isLong && stochK < stochD) mainConflict = "Stoch Falling vs Long";
+    }
+
+    return { directAction, triggerNeeded, confidence, mainConflict };
+}
+
+function deriveTradePlanDescriptions(signal) {
+    const isShort = signal.bias === "short";
+    const isLong = signal.bias === "long";
+    const tf = formatDetailTimeframe(signal.timeframe);
+    const slSrc = levelSourceLabel(signal.slSource);
+    const tp1Src = levelSourceLabel(signal.tp1Source);
+    const tp2Src = levelSourceLabel(signal.tp2Source);
+
+    const entryDesc = isShort
+        ? `Wait for bearish rejection candle at retest zone with ${tf} momentum confirmation before executing short.`
+        : isLong
+            ? `Wait for bullish confirmation candle at support zone with ${tf} momentum alignment before entering long.`
+            : `Monitor for directional bias confirmation before committing to entry.`;
+
+    const slDesc = slSrc
+        ? `Invalidation at ${slSrc}. Signal fails if price closes beyond this structure.`
+        : `Signal invalid if price closes beyond the protected structure level.`;
+
+    const hasPlan = signal.partialTpPlan?.isValid;
+    const leg1Pct = signal.partialTpPlan?.legs?.[0]?.allocationPct;
+    const tpDesc = hasPlan && leg1Pct
+        ? `Exit ${leg1Pct}% at TP1, move SL to breakeven, let runner target TP2${tp2Src ? ` (${tp2Src})` : ""}.`
+        : tp1Src && tp2Src
+            ? `Partial exit at TP1 (${tp1Src}), full exit at TP2 (${tp2Src}).`
+            : `Take partial profit at TP1 and let remaining position target TP2 if momentum holds.`;
+
+    return { entryDesc, slDesc, tpDesc };
+}
+
+function deriveKeyConfluence(signal) {
+    const isShort = signal.bias === "short";
+    const isLong = signal.bias === "long";
+    const rsi = Number(signal.rsi);
+    const stochK = Number(signal.stochK);
+    const stochD = Number(signal.stochD);
+    const emaFast = Number(signal.emaFast);
+    const emaSlow = Number(signal.emaSlow);
+    const fastPeriod = signal.fastPeriod || 21;
+    const slowPeriod = signal.slowPeriod || 50;
+    const ezStatus = signal.entryZone?.status;
+
+    let trendValue = "EMA data unavailable";
+    if (Number.isFinite(emaFast) && Number.isFinite(emaSlow)) {
+        const aligned = isShort ? emaFast < emaSlow : emaFast > emaSlow;
+        trendValue = aligned
+            ? `EMA${fastPeriod} ${isShort ? "below" : "above"} EMA${slowPeriod} — confirmed`
+            : `EMA${fastPeriod} ${isShort ? "above" : "below"} EMA${slowPeriod} — conflict`;
+    }
+
+    let levelValue = "No zone data";
+    if (ezStatus === "valid") levelValue = "Entry zone valid — await retest";
+    else if (ezStatus === "near-edge") levelValue = "Entry zone near expiry";
+    else if (ezStatus === "expired") levelValue = "Entry zone expired";
+    else if (ezStatus === "missed") levelValue = "Setup missed";
+    else if (signal.poc) levelValue = `POC reference: ${formatPriceLabel(signal.poc)}`;
+
+    let momentumValue = "No data";
+    if (Number.isFinite(rsi) && Number.isFinite(stochK)) {
+        const stochDir = stochK > stochD ? "↑ rising" : "↓ falling";
+        momentumValue = `RSI ${Math.round(rsi)} · Stoch ${Number(stochK).toFixed(1)} ${stochDir}`;
+    } else if (Number.isFinite(rsi)) {
+        momentumValue = `RSI ${Math.round(rsi)}`;
+    }
+
+    const emaAligned = Number.isFinite(emaFast) && Number.isFinite(emaSlow)
+        ? (isShort ? emaFast < emaSlow : emaFast > emaSlow)
+        : true;
+
+    let conflictValue = "None detected";
+    if (!emaAligned) conflictValue = "EMA structure misaligned";
+    else if (isShort && Number.isFinite(rsi) && rsi < 40) conflictValue = "RSI oversold vs short bias";
+    else if (isLong && Number.isFinite(rsi) && rsi > 65) conflictValue = "RSI overbought vs long bias";
+    else if (ezStatus === "expired" || ezStatus === "missed") conflictValue = "Entry timing past";
+    else if (Number.isFinite(stochK) && Number.isFinite(stochD)) {
+        if (isShort && stochK > stochD) conflictValue = "Stoch momentum vs short";
+        else if (isLong && stochK < stochD) conflictValue = "Stoch momentum vs long";
+    }
+
+    return { trendValue, levelValue, momentumValue, conflictValue };
+}
+
 function SignalDetailSideout({ signal, onClose }) {
     useEffect(() => {
         function handleKeyDown(event) {
@@ -1003,6 +1379,14 @@ function SignalDetailSideout({ signal, onClose }) {
 
     const styles = biasStyles(signal.bias);
     const signalTone = signal.bias === "long" ? "long" : signal.bias === "short" ? "short" : "neutral";
+    const signalBadges = deriveSignalBadges(signal);
+    const narrative = deriveSignalNarrative(signal);
+    const decision = deriveDecisionSummary(signal);
+    const tradePlan = deriveTradePlanDescriptions(signal);
+    const confluence = deriveKeyConfluence(signal);
+    const usdtDominanceWarnings = Array.isArray(signal.usdtDominanceTrend?.warnings)
+        ? signal.usdtDominanceTrend.warnings.filter(Boolean)
+        : [];
 
     return (
         <div
@@ -1027,27 +1411,36 @@ function SignalDetailSideout({ signal, onClose }) {
                     >
                         <div className="flex flex-wrap gap-2">
                             <DetailBadge tone={signalTone}>{styles.label}</DetailBadge>
-                            <DetailBadge tone="neutral">Neutral</DetailBadge>
-                            <DetailBadge tone="warning">Wait Retest</DetailBadge>
-                            <DetailBadge tone="late">Late Entry</DetailBadge>
+                            {signalBadges.map((badge, i) => (
+                                <DetailBadge key={i} tone={badge.tone}>{badge.label}</DetailBadge>
+                            ))}
                         </div>
 
                         <section className="mt-6 border-l-[6px] border-[#9AE600] pl-5 bg-[#1E2125] rounded-[8px] p-4">
                             <p className="font-chakra text-xs font-bold text-white">Detail Signal</p>
                             <p className="mt-[4px] font-chakra text-xs leading-5 text-[#D5D7DA]">
-                                Bearish continuation remains valid while price stays below EMA 50 and fails to reclaim
-                                the POC area. Short plan is prepared, but entry stays locked until retest rejection
-                                confirms seller control.
+                                {narrative}
                             </p>
                         </section>
+
+                        {usdtDominanceWarnings.length > 0 && (
+                            <section className="mt-4 rounded-lg border border-yellow-400/20 bg-yellow-500/10 p-3">
+                                <p className="font-chakra text-xs font-bold uppercase text-yellow-300">USDT.D Context</p>
+                                <ul className="mt-2 space-y-1">
+                                    {usdtDominanceWarnings.slice(0, 2).map((warning, i) => (
+                                        <li key={i} className="font-chakra text-xs leading-4 text-zinc-300">{warning}</li>
+                                    ))}
+                                </ul>
+                            </section>
+                        )}
 
                         <section className="mt-8">
                             <DetailSectionHeader>Decision Summary</DetailSectionHeader>
                             <div className="mt-4 grid grid-cols-2 gap-2">
-                                <DecisionItem label="Direct Action" value="Locked" />
-                                <DecisionItem label="Trigger Needed" value="Locked" />
-                                <DecisionItem label="Confidence" value="Locked" />
-                                <DecisionItem label="Main Conflict" value="Locked" />
+                                <DecisionItem label="Direct Action" value={decision.directAction} />
+                                <DecisionItem label="Trigger Needed" value={decision.triggerNeeded} />
+                                <DecisionItem label="Confidence" value={decision.confidence} />
+                                <DecisionItem label="Main Conflict" value={decision.mainConflict} />
                             </div>
                         </section>
 
@@ -1057,17 +1450,17 @@ function SignalDetailSideout({ signal, onClose }) {
                                 <TradePlanRow
                                     label="Entry"
                                     title={`${formatPriceLabel(signal.entry)} retest confirmation`}
-                                    description="Wait for rejection candle and lower-timeframe momentum alignment before execution."
+                                    description={tradePlan.entryDesc}
                                 />
                                 <TradePlanRow
                                     label="SL"
                                     title={`${formatPriceLabel(signal.sl)} invalidation area`}
-                                    description="Signal is invalid if price closes beyond the protected structure level."
+                                    description={tradePlan.slDesc}
                                 />
                                 <TradePlanRow
                                     label="TP"
                                     title={`${formatPriceLabel(signal.tp1)} then ${formatPriceLabel(signal.tp2 || signal.tp)}`}
-                                    description="Take partial profit at TP1 and let remaining position target TP2 if momentum holds."
+                                    description={tradePlan.tpDesc}
                                     isLast
                                 />
                             </div>
@@ -1088,10 +1481,10 @@ function SignalDetailSideout({ signal, onClose }) {
                         <section className="mt-8 pb-8">
                             <p className="font-chakra text-xs font-bold uppercase text-white">Key Confluence</p>
                             <div className="mt-4">
-                                <ConfluenceRow label="Trend" value="EMA structure aligned" />
-                                <ConfluenceRow label="Level" value="Retest zone pending" />
-                                <ConfluenceRow label="Momentum" value="Stoch RSI monitored" />
-                                <ConfluenceRow label="Conflict" value="Needs clean trigger" />
+                                <ConfluenceRow label="Trend" value={confluence.trendValue} />
+                                <ConfluenceRow label="Level" value={confluence.levelValue} />
+                                <ConfluenceRow label="Momentum" value={confluence.momentumValue} />
+                                <ConfluenceRow label="Conflict" value={confluence.conflictValue} />
                             </div>
                         </section>
                     </div>
