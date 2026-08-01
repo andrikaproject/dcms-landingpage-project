@@ -2,7 +2,7 @@
 
 ## Objective
 
-Build the authenticated server-side scanner that evaluates the 30 most liquid Bitunix USDT futures and returns only markets trading from 0% to 1% above their UTC Previous Week Low.
+Build the authenticated server-side scanner that evaluates the 30 most liquid Bitunix USDT futures and returns only markets trading from 0% to 5% above their UTC Previous Week Low.
 
 ## Scope
 
@@ -11,8 +11,8 @@ Build the authenticated server-side scanner that evaluates the 30 most liquid Bi
 - Restrict the scan universe to the top 30 liquid pairs.
 - Reuse the existing daily-candle and UTC weekly-level calculation logic to obtain PWL.
 - Calculate `deltaPrice` and `distancePercent` for each pair.
-- Include a pair only when `currentPrice >= pwl` and `distancePercent <= 1`.
-- Mark `isVeryNear` when `distancePercent <= 0.35`.
+- Include a pair only when `currentPrice >= pwl` and `distancePercent <= 5`.
+- Mark `Sangat Dekat` when `distancePercent <= 0.35`, `Dekat` through 1%, and `Pantau` through 5%.
 - Sort by distance ascending and return a minimal result row: symbol, current price, PWL, nominal delta, percentage delta, 24-hour quote volume, and near status.
 - Create a dedicated authenticated endpoint at `/api/market-analysis/pwl-scanner`.
 
@@ -27,7 +27,7 @@ Build the authenticated server-side scanner that evaluates the 30 most liquid Bi
 
 ## Tests
 
-- Unit-test the eligibility boundary: exactly PWL, 0.35%, exactly 1%, above 1%, and below PWL.
+- Unit-test the eligibility boundary: exactly PWL, 0.35%, exactly 1%, exactly 5%, above 5%, and below PWL.
 - Unit-test ranking, volume-universe selection, skipped markets, and empty results with mocked Bitunix data.
 - Test cache hit, cache expiry, and concurrent-request deduplication.
 - Test unauthenticated, rate-limited, upstream-failure, and partial-success API responses.
@@ -35,6 +35,6 @@ Build the authenticated server-side scanner that evaluates the 30 most liquid Bi
 ## Completion Criteria
 
 - The endpoint returns no chart candle arrays.
-- All returned rows obey UTC PWL and the inclusive 0%–1% range.
+- All returned rows obey UTC PWL and the inclusive 0%–5% range.
 - Simultaneous calls reuse cached or in-flight work.
 - Engine and route tests pass.

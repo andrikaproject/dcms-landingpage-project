@@ -18,8 +18,8 @@ A member clicks `Scan PWL` and receives a ranked list of eligible markets. Each 
 | Market source | Bitunix USDT futures only. |
 | Liquidity universe | Select the 30 markets with the highest 24-hour `quoteVol` at scan time. |
 | Weekly level | PWL is the lowest low of the previous fully completed UTC calendar week, Monday 00:00 through Sunday 23:59:59 UTC. |
-| Eligible price range | Current price must be at or above PWL and no more than 1.00% above PWL. |
-| Near status | A result at or below 0.35% above PWL is labelled `Sangat Dekat`. |
+| Eligible price range | Current price must be at or above PWL and no more than 5.00% above PWL. |
+| Proximity status | `Sangat Dekat` at or below 0.35%; `Dekat` above 0.35% through 1%; `Pantau` above 1% through 5%. |
 | Breakdowns | Markets below PWL are excluded from this scanner. |
 | Ranking | Ascending percentage distance from PWL; return at most 30 eligible markets. |
 | Inspection chart | `Open 4H` adds/selects the result in Market Analysis and opens it using UTC basis and 4H candles. |
@@ -42,7 +42,7 @@ Example: current `$0.4210`, PWL `$0.4182` gives delta `+$0.0028` and distance `+
 
 The scanner is a collapsible panel on `/dashboard/market-analysis`, positioned after the Market Analysis controls and before the existing three-column watchlist, chart, and insight workspace. It is not a separate tab and does not replace the chart.
 
-Before the first scan, the collapsed panel communicates the scanner's purpose, UTC/4H context, range `0–1% above PWL`, and contains the primary `Scan PWL` button. On narrow screens, the panel remains above the chart and result rows adapt into a compact layout.
+Before the first scan, the collapsed panel communicates the scanner's purpose, UTC/4H context, range `0–5% above PWL`, and contains the primary `Scan PWL` button. On narrow screens, the panel remains above the chart and result rows adapt into a compact layout.
 
 ### Scan State
 
@@ -58,14 +58,14 @@ Each result row includes:
 - Positive nominal distance from PWL, for example `+$0.0028`.
 - Positive percentage distance from PWL, for example `+0.67%`.
 - 24-hour quote volume.
-- `Sangat Dekat` badge when the percentage distance is at most 0.35%.
+- Text status: `Sangat Dekat` at or below 0.35%, `Dekat` through 1%, or `Pantau` through 5%.
 - `Open 4H` action.
 
 Selecting `Open 4H` must preserve the scanner result panel while it adds/selects the symbol in the existing watchlist and updates the chart and insight panel.
 
 ### Empty and Error States
 
-- If no eligible market is found among the top 30 liquid markets, show: `Belum ada market liquid dalam rentang 0–1% di atas PWL.`
+- If no eligible market is found among the top 30 liquid markets, show: `Belum ada market liquid dalam rentang 0–5% di atas PWL.`
 - If some markets cannot be analyzed, retain successful results and show the count of skipped markets.
 - If the scan cannot start or all market data fails, show a retryable, non-technical error without affecting existing chart data.
 
@@ -104,10 +104,10 @@ The scanner must protect both the application and Bitunix when 10–20 members s
 
 1. A member can manually run the scanner from Market Analysis.
 2. The scanner evaluates the 30 highest-`quoteVol` Bitunix USDT futures available at scan time.
-3. Every displayed result has a valid PWL and is between 0% and 1% above it.
+3. Every displayed result has a valid PWL and is between 0% and 5% above it.
 4. Results are sorted nearest to furthest by percentage distance.
 5. Rows show current price, PWL price, nominal delta, percentage delta, and 24-hour volume.
-6. Results at 0.35% or less show `Sangat Dekat`.
+6. Results show `Sangat Dekat` at 0.35% or less, `Dekat` through 1%, or `Pantau` through 5%.
 7. Markets below PWL never appear in the result set.
 8. `Open 4H` opens the selected market in the existing UTC 4H Market Analysis experience.
 9. Concurrent scans share cached or in-flight work for five minutes rather than multiplying upstream work per user.

@@ -4,82 +4,43 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import AnimatedDashboardIcon from "@/components/AnimatedDashboardIcon";
+import {
+    House,
+    ArrowsLeftRight,
+    CurrencyCircleDollar,
+    Robot,
+    SidebarSimple,
+    CaretRight,
+} from "@phosphor-icons/react";
 
+// Sidebar matched to Figma "DCMS - Project Assign" (node 2255:34453).
+// Collapse, active-route and mobile behaviors are preserved from the previous
+// shell (they are not represented in the static Figma frame).
+// Width is narrowed from the 302px Figma frame to reclaim content space while
+// still fitting the longest label ("Market Analysis") at 16px.
 const EXPANDED_WIDTH = 240;
 const COLLAPSED_WIDTH = 88;
 
 const NAV_ITEMS = [
-    { icon: "dashboard", label: "Dashboard", href: "/dashboard" },
-    { icon: "chart", label: "Market Analysis", href: "/dashboard/market-analysis" },
-    { icon: "ebook", label: "Ebook DCMS", href: "/dashboard/ebook" },
-    { icon: "bot", label: "Bots", href: "/dashboard/bots" },
+    { Icon: House, label: "Dashboard", href: "/dashboard", animated: true },
+    { Icon: ArrowsLeftRight, label: "Market Analysis", href: "/dashboard/market-analysis" },
+    { Icon: CurrencyCircleDollar, label: "Ebook DCMS", href: "/dashboard/ebook" },
+    { Icon: Robot, label: "Bots", href: "/dashboard/bots" },
 ];
 
-function Icon({ name }) {
-    const iconProps = {
-        width: 20,
-        height: 20,
-        viewBox: "0 0 24 24",
-        fill: "none",
-        stroke: "currentColor",
-        strokeWidth: 2,
-        strokeLinecap: "round",
-        strokeLinejoin: "round",
-        "aria-hidden": true,
-    };
-
-    const paths = {
-        dashboard: (
-            <>
-                <rect x="3" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="14" width="7" height="7" rx="1" />
-                <rect x="3" y="14" width="7" height="7" rx="1" />
-            </>
-        ),
-        chart: (
-            <>
-                <path d="M3 3v18h18" />
-                <path d="m7 15 4-4 3 3 5-7" />
-            </>
-        ),
-        ebook: (
-            <>
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z" />
-            </>
-        ),
-        bot: (
-            <>
-                <rect x="5" y="8" width="14" height="10" rx="3" />
-                <path d="M12 8V4" />
-                <path d="M9 13h.01" />
-                <path d="M15 13h.01" />
-                <path d="M8 20h8" />
-            </>
-        ),
-        panel: (
-            <>
-                <rect x="3" y="4" width="18" height="16" rx="2" />
-                <path d="M9 4v16" />
-            </>
-        ),
-        chevronLeft: <path d="m15 18-6-6 6-6" />,
-        chevronRight: <path d="m9 18 6-6-6-6" />,
-    };
-
-    return <svg {...iconProps}>{paths[name]}</svg>;
-}
-
 function LogoMark() {
+    // Figma: solid lime fill (#B7FB5B) with lime border (#BDEF7A), radius 8,
+    // blue-tinted drop shadow + inset white bottom highlight, opacity 0.92.
+    // The DCMS mark asset is white, so brightness-0 renders it black on the lime.
     return (
-        <div className="grid size-10 shrink-0 place-items-center rounded-lg border border-[#B7FB5B]/40 bg-[#B7FB5B] shadow-[0_1px_4px_rgba(183,251,91,0.2)]">
+        <div className="grid size-9 shrink-0 place-items-center rounded-lg border border-[#BDEF7A] bg-[#B7FB5B] p-2 opacity-[0.92] shadow-[0_1px_4px_0_rgba(66,138,255,0.2),inset_0_-2px_4px_-1px_#ffffff]">
             <Image
                 src="/images/logo-dcms.svg"
                 alt=""
-                width={24}
-                height={24}
-                className="object-contain brightness-0"
+                width={20}
+                height={20}
+                className="size-5 object-contain brightness-0"
             />
         </div>
     );
@@ -90,20 +51,35 @@ function isNavActive(pathname, href) {
     return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function NavItem({ icon, label, href, active = false, collapsed }) {
+function NavItem({ Icon, label, href, active = false, collapsed, animated = false }) {
+    const [hovered, setHovered] = useState(false);
+
     return (
         <Link
             href={href}
             title={collapsed ? label : undefined}
-            className={`flex h-12 w-full items-center rounded-[6px] py-2 font-chakra text-sm font-semibold leading-5 transition ${collapsed ? "justify-center px-0" : "gap-3 px-2"} ${active
-                ? "border border-[#36353d] bg-gradient-to-b from-[#25242a] to-[#17161c] text-white shadow-[0_1px_2px_rgba(20,21,26,0.05)]"
-                : "text-[#949398] hover:bg-white/[0.03] hover:text-white"
+            onPointerEnter={() => animated && setHovered(true)}
+            onPointerLeave={() => animated && setHovered(false)}
+            className={`flex h-10 w-full items-center overflow-hidden rounded-lg font-chakra text-base leading-6 transition ${collapsed ? "justify-center px-0" : "gap-2 px-3"} ${active
+                ? "bg-gradient-to-r from-white/40 to-transparent font-bold text-white"
+                : "font-medium text-[#5C5C5C] hover:bg-white/[0.03] hover:text-white"
                 }`}
         >
-            <span className={`grid size-5 shrink-0 place-items-center ${active ? "text-white [&>svg]:size-[18px]" : "text-[#949398] [&>svg]:size-[18px]"}`}>
-                <Icon name={icon} />
-            </span>
-            <span className={`min-w-0 flex-1 truncate transition ${collapsed ? "sr-only" : "opacity-100"}`}>
+            {animated ? (
+                <AnimatedDashboardIcon
+                    playing={hovered}
+                    size={16}
+                    fallbackWeight={active ? "bold" : "regular"}
+                />
+            ) : (
+                <Icon
+                    size={16}
+                    weight={active ? "bold" : "regular"}
+                    className="shrink-0"
+                    aria-hidden
+                />
+            )}
+            <span className={`min-w-0 flex-1 truncate ${collapsed ? "sr-only" : "opacity-100"}`}>
                 {label}
             </span>
         </Link>
@@ -113,60 +89,84 @@ function NavItem({ icon, label, href, active = false, collapsed }) {
 function Sidebar({ collapsed, onToggle, user, logoutSlot, pathname }) {
     return (
         <aside
-            className="fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-[#14131c] bg-[#07060e] py-5 transition-[width,padding] duration-300 ease-out lg:flex"
+            className="fixed inset-y-0 left-0 z-40 hidden flex-col bg-[#0A0D12] transition-[width] duration-300 ease-out lg:flex"
             style={{
                 width: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
-                paddingLeft: collapsed ? 16 : 24,
-                paddingRight: collapsed ? 16 : 24,
                 boxSizing: "border-box",
             }}
         >
-            <div className={`flex items-center border-b border-dashed border-[#313040] pb-5 ${collapsed ? "justify-center" : "justify-between"}`}>
+            {/* Decorative atmospheric glows (Figma ellipses 2392 / 2393). */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                <div className="absolute -top-16 left-1/2 h-24 w-44 -translate-x-1/2 rounded-full bg-white/10 blur-[70px]" />
+                <div className="absolute bottom-44 -left-16 h-16 w-44 rounded-full bg-white/[0.07] blur-[80px]" />
+            </div>
+
+            {/* Header: logo + collapse toggle */}
+            <div
+                className={`relative z-10 flex h-[88px] shrink-0 items-center gap-3 px-4 ${collapsed ? "justify-center" : "justify-between"}`}
+            >
                 <div className="flex min-w-0 items-center gap-3">
                     <LogoMark />
-                    <span className={`font-nebulica text-xl font-bold text-white transition ${collapsed ? "sr-only" : "opacity-100"}`}>
-                        DCMS
-                    </span>
+                    <div className={`flex min-w-0 flex-col justify-center gap-0.5 whitespace-nowrap ${collapsed ? "sr-only" : ""}`}>
+                        <span className="truncate font-nebulica text-[10px] font-bold leading-[8px] text-[#878787] opacity-40">
+                            Diskusi Crypto Micin Saham
+                        </span>
+                        <span className="font-chakra text-base font-bold leading-6 text-white">
+                            DCMS
+                        </span>
+                    </div>
                 </div>
                 <button
                     type="button"
                     onClick={onToggle}
-                    className={`grid size-7 shrink-0 place-items-center rounded-full bg-[#25242a] text-[#949398] transition hover:text-white ${collapsed ? "absolute -right-3 top-6 border border-[#36353d]" : ""}`}
+                    className={`grid size-7 shrink-0 place-items-center rounded-md text-[#A3A3A3] transition hover:text-white ${collapsed ? "absolute -right-3 top-8 border border-white/10 bg-[#14171d]" : ""}`}
                     aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                     aria-expanded={!collapsed}
                     title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                 >
-                    <Icon name={collapsed ? "chevronRight" : "chevronLeft"} />
+                    {collapsed ? <CaretRight size={16} aria-hidden /> : <SidebarSimple size={20} aria-hidden />}
                 </button>
             </div>
 
-            <nav className="mt-6 flex flex-1 flex-col gap-2">
-                <p className={`mb-1 text-xs text-[#949398] transition ${collapsed ? "sr-only" : "opacity-100"}`}>Main Menu</p>
-                {NAV_ITEMS.map((item) => (
-                    <NavItem
-                        key={item.label}
-                        icon={item.icon}
-                        label={item.label}
-                        href={item.href}
-                        active={isNavActive(pathname, item.href)}
-                        collapsed={collapsed}
-                    />
-                ))}
+            {/* Content: main menu */}
+            <nav className="relative z-10 flex flex-1 flex-col gap-3 px-4 py-2">
+                <div className="flex flex-col gap-0.5">
+                    <p className={`px-3 pb-2 text-[12px] font-medium uppercase leading-4 tracking-[0.48px] text-[#A3A3A3] ${collapsed ? "sr-only" : ""}`}>
+                        Main Menu
+                    </p>
+                    {NAV_ITEMS.map((item) => (
+                        <NavItem
+                            key={item.label}
+                            Icon={item.Icon}
+                            label={item.label}
+                            href={item.href}
+                            active={isNavActive(pathname, item.href)}
+                            collapsed={collapsed}
+                            animated={item.animated}
+                        />
+                    ))}
+                </div>
             </nav>
 
-            <div className={`flex items-center gap-3 ${collapsed ? "flex-col justify-center" : "justify-between"}`}>
-                <div className={`flex min-w-0 items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
-                    <div className="grid size-12 shrink-0 place-items-center rounded-full bg-[#23222f] p-1">
-                        <div className="grid size-10 place-items-center rounded-full bg-[#B7FB5B] text-sm font-black text-black">
-                            {(user.name || user.email || "U").slice(0, 1).toUpperCase()}
-                        </div>
+            {/* Footer: user + copyright */}
+            <div className="relative z-10 flex shrink-0 flex-col items-center gap-3 p-4">
+                <div className={`flex w-full items-center gap-2.5 ${collapsed ? "justify-center" : ""}`}>
+                    <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#CFD4D7] text-xs font-bold text-[#0A0D12]">
+                        {(user.name || user.email || "U").slice(0, 1).toUpperCase()}
                     </div>
-                    <div className={`min-w-0 font-chakra transition ${collapsed ? "sr-only" : "opacity-100"}`}>
-                        <p className="truncate text-sm font-bold text-white">{user.name || "Member"}</p>
-                        <p className="truncate text-xs text-[#949398]">{user.uuidBitunix || user.role}</p>
+                    <div className={`min-w-0 flex-1 font-chakra ${collapsed ? "sr-only" : ""}`}>
+                        <p className="truncate text-xs font-bold leading-4 text-white">{user.name || "Member"}</p>
+                        <p className="truncate text-xs font-normal leading-4 text-[#7B7B7B]">{user.uuidBitunix || user.role}</p>
                     </div>
+                    {!collapsed && logoutSlot}
                 </div>
-                {logoutSlot}
+                {collapsed && logoutSlot}
+                {!collapsed && (
+                    <>
+                        <div className="h-px w-full bg-white/10" />
+                        <p className="w-full text-xs font-bold leading-4 text-[#7B7B7B]">© {new Date().getFullYear()} DCMS</p>
+                    </>
+                )}
             </div>
         </aside>
     );
@@ -174,23 +174,32 @@ function Sidebar({ collapsed, onToggle, user, logoutSlot, pathname }) {
 
 function MobileNav({ logoutSlot, pathname }) {
     return (
-        <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[#14131c] bg-[#07060e]/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0A0D12]/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
             <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
-                {NAV_ITEMS.map((item) => (
-                    <Link
-                        key={item.label}
-                        href={item.href}
-                        className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold leading-none transition ${isNavActive(pathname, item.href)
-                            ? "border border-[#36353d] bg-gradient-to-b from-[#25242a] to-[#17161c] text-white"
-                            : "text-[#949398] hover:bg-white/[0.03] hover:text-white"
-                            }`}
-                    >
-                        <span className="[&>svg]:size-[18px]">
-                            <Icon name={item.icon} />
-                        </span>
-                        <span className="max-w-full truncate">{item.label.split(" ")[0]}</span>
-                    </Link>
-                ))}
+                {NAV_ITEMS.map((item) => {
+                    const active = isNavActive(pathname, item.href);
+                    const ItemIcon = item.Icon;
+                    return (
+                        <Link
+                            key={item.label}
+                            href={item.href}
+                            className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold leading-none transition ${active
+                                ? "border border-white/10 bg-gradient-to-r from-white/40 to-transparent text-white"
+                                : "text-[#5C5C5C] hover:bg-white/[0.03] hover:text-white"
+                                }`}
+                        >
+                            {item.animated ? (
+                                <AnimatedDashboardIcon
+                                    size={18}
+                                    fallbackWeight={active ? "bold" : "regular"}
+                                />
+                            ) : (
+                                <ItemIcon size={18} weight={active ? "bold" : "regular"} aria-hidden />
+                            )}
+                            <span className="max-w-full truncate">{item.label.split(" ")[0]}</span>
+                        </Link>
+                    );
+                })}
                 <div className="grid min-h-12 place-items-center">
                     {logoutSlot}
                 </div>

@@ -157,3 +157,407 @@ body {
     transform: scaleX(0);
   }
 }
+
+/* ── DCMS landing hero motion (Signal Pulse + Typewriter) ── */
+
+/* 1. Hero market scanline */
+@keyframes dcms-hero-scanline {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    transform: translateY(880px);
+    opacity: 0;
+  }
+}
+
+.dcms-hero-scanline {
+  position: absolute;
+  top: -120px;
+  left: 0;
+  right: 0;
+  height: 110px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(183, 251, 91, 0.05) 40%,
+    rgba(183, 251, 91, 0.13) 50%,
+    rgba(183, 251, 91, 0.05) 60%,
+    transparent
+  );
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+  animation: dcms-hero-scanline 5.5s linear infinite;
+  will-change: transform;
+}
+
+/* 2. Hero grid drift — one 48px cell per loop so it tiles seamlessly */
+@keyframes dcms-grid-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 48px;
+  }
+}
+
+.dcms-grid-drift {
+  animation: dcms-grid-drift 14s linear infinite;
+}
+
+/* 3. Dashboard preview float — base transform injected per breakpoint via CSS var */
+@keyframes dcms-dashboard-float {
+  0%,
+  100% {
+    transform: var(--dcms-float-transform, none);
+  }
+  50% {
+    transform: var(--dcms-float-transform, none) translateY(var(--dcms-float-range, -8px));
+  }
+}
+
+.dcms-dashboard-float {
+  animation: dcms-dashboard-float 7s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* 4. Signal pulse */
+@keyframes dcms-signal-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+
+.dcms-signal-pulse {
+  animation: dcms-signal-pulse 2.8s ease-in-out infinite;
+}
+
+.dcms-signal-zone {
+  box-shadow: 0 0 14px rgba(183, 251, 91, 0.4);
+  animation: dcms-signal-pulse 3.4s ease-in-out infinite;
+}
+
+.dcms-knob-halo::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  border: 2px solid rgba(183, 251, 91, 0.55);
+  animation: dcms-knob-halo 2.6s ease-out infinite;
+}
+
+@keyframes dcms-knob-halo {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.8;
+  }
+  70%,
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+.dcms-tf-breathe {
+  animation: dcms-signal-pulse 4s ease-in-out infinite;
+}
+
+/* 5. PnL card drift — includes the base rotation of each card */
+@keyframes dcms-pnl-drift-left {
+  0%,
+  100% {
+    transform: rotate(-8deg) translateY(0);
+  }
+  50% {
+    transform: rotate(-6.5deg) translateY(-9px);
+  }
+}
+
+.dcms-pnl-drift-left {
+  animation: dcms-pnl-drift-left 9s ease-in-out infinite;
+}
+
+@keyframes dcms-pnl-drift-right {
+  0%,
+  100% {
+    transform: rotate(7deg) translateY(0);
+  }
+  50% {
+    transform: rotate(8.5deg) translateY(-8px);
+  }
+}
+
+.dcms-pnl-drift-right {
+  animation: dcms-pnl-drift-right 11s ease-in-out infinite;
+}
+
+/* 6. CTA + glass micro-interactions */
+@keyframes dcms-glow-breathe {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.dcms-cta-pulse {
+  position: relative;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dcms-cta-pulse::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  box-shadow: 0 0 42px rgba(183, 251, 91, 0.4);
+  opacity: 0;
+  animation: dcms-glow-breathe 4.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.dcms-cta-pulse:hover,
+.dcms-cta-pulse:focus-visible {
+  transform: translateY(-2px);
+}
+
+.dcms-glass-breathe {
+  position: relative;
+}
+
+.dcms-glass-breathe::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  opacity: 0;
+  animation: dcms-glow-breathe 5.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.dcms-glass-island {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dcms-glass-island:hover {
+  transform: translateY(-2px);
+}
+
+/* Typewriter caret */
+@keyframes dcms-caret-blink {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  56%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.dcms-caret {
+  display: inline-block;
+  width: 0.07em;
+  height: 0.76em;
+  margin-left: 0.06em;
+  background: #b7fb5b;
+  vertical-align: baseline;
+  animation: dcms-caret-blink 1.05s steps(1) infinite;
+}
+
+/* Market Analysis surface language and low-cost micro-interactions. */
+@keyframes market-skeleton-shimmer {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes market-live-breathe {
+  0%,
+  100% {
+    transform: scale(0.82);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.market-live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #b7fb5b;
+  box-shadow: 0 0 0 3px rgba(183, 251, 91, 0.08);
+  animation: market-live-breathe 2.4s ease-in-out infinite;
+}
+
+.market-skeleton {
+  background: rgba(255, 255, 255, 0.045);
+  animation: market-skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes pwl-panel-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pwl-row-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pwl-panel-reveal {
+  animation: pwl-panel-reveal 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.pwl-result-row {
+  animation: pwl-row-reveal 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: min(calc(var(--pwl-row-index, 0) * 45ms), 450ms);
+}
+
+.pwl-result-row:hover {
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.market-chart-surface {
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.market-watchlist,
+.market-insight-panel {
+  min-width: 0;
+}
+
+.market-info-button {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid rgba(156, 163, 175, 0.35);
+  border-radius: 999px;
+  color: #9ca3af;
+  transition: color 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.market-info-button:hover,
+.market-info-button:focus-visible {
+  border-color: rgba(183, 251, 91, 0.75);
+  color: #b7fb5b;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.market-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 2;
+  display: grid;
+  width: max-content;
+  max-width: 220px;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: #151c27;
+  box-shadow: 0 12px 30px rgba(4, 7, 12, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: #d1d5db;
+  font-size: 11px;
+  line-height: 1.35;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  white-space: normal;
+  transform: translate(-50%, 4px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.market-tooltip strong {
+  color: #f3f4f6;
+  font-size: 11px;
+}
+
+.market-tooltip-trigger:hover .market-tooltip,
+.market-tooltip-trigger:focus-within .market-tooltip,
+.market-tooltip-trigger.is-open .market-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .market-live-dot,
+  .market-skeleton,
+  .pwl-panel-reveal,
+  .pwl-result-row {
+    animation: none !important;
+  }
+}
+
+/* Reduced motion: kill all hero loops, keep static layout */
+@media (prefers-reduced-motion: reduce) {
+  .dcms-hero-scanline,
+  .dcms-grid-drift,
+  .dcms-dashboard-float,
+  .dcms-pnl-drift-left,
+  .dcms-pnl-drift-right,
+  .dcms-signal-pulse,
+  .dcms-signal-zone,
+  .dcms-tf-breathe,
+  .dcms-caret {
+    animation: none !important;
+  }
+
+  .dcms-hero-scanline {
+    opacity: 0 !important;
+  }
+
+  .dcms-cta-pulse::before,
+  .dcms-glass-breathe::after,
+  .dcms-knob-halo::after {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+
+  .dcms-cta-pulse:hover,
+  .dcms-cta-pulse:focus-visible,
+  .dcms-glass-island:hover {
+    transform: none;
+  }
+}

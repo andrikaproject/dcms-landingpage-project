@@ -9,7 +9,7 @@ Expose the manual PWL scanner in Market Analysis as a collapsible panel above th
 - Add a focused client component, for example `PwlProximityScanner.jsx`.
 - Place it after `MarketAnalysisControls` and before the existing three-column workspace in `MarketAnalysisWorkspace`.
 - Do not introduce a new page, route, or tab.
-- Show the UTC and 4H scanner context, range `0–1% above PWL`, and context notice that this is not an entry signal.
+- Show the UTC and 4H scanner context, range `0–5% above PWL`, proximity tier, and context notice that this is not an entry signal.
 - Provide a manual `Scan PWL` button; do not scan on page load or on an interval.
 - Render loading, cached, empty, partial-failure, and retryable full-failure states.
 - Render each row with symbol, current price, PWL price, nominal delta, percentage distance, 24-hour volume, `Sangat Dekat` status, and `Open 4H`.

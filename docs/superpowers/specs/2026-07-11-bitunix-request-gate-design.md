@@ -1,7 +1,7 @@
 # Bitunix Request Gate Design
 
 Date: 2026-07-11
-Status: Approved design; pending spec review
+Status: Approved and implemented
 
 ## Goal
 
