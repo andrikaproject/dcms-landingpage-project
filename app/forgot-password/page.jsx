@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
+import { apiRequest } from "@/lib/api/client";
 
 export default function ForgotPasswordPage() {
     const [email, setEmail] = useState("");
@@ -18,21 +19,20 @@ export default function ForgotPasswordPage() {
         setDebugResetUrl("");
         setError("");
 
-        const response = await fetch("/api/password-reset/request", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email }),
-        });
-        const result = await response.json();
-
-        if (!response.ok || result.error) {
-            setError(result.error || "Tidak bisa mengirim link reset password.");
-        } else {
-            setMessage(result.success);
+        try {
+            const result = await apiRequest("/auth/password-reset/request", {
+                method: "POST",
+                auth: false,
+                retryAuth: false,
+                body: { email },
+            });
+            setMessage(result.message);
             setDebugResetUrl(result.debugResetUrl || "");
+        } catch (requestError) {
+            setError(requestError.message || "Tidak bisa mengirim link reset password.");
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     }
 
     return (

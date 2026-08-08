@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { apiRequest } from "@/lib/api/client";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -158,10 +159,9 @@ function LockButton({ item }) {
         setState("loading");
         setErrMsg("");
         try {
-            const res = await fetch("/api/locked-signals", {
+            await apiRequest("/signals/locked", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
+                body: {
                     symbol: item.symbol,
                     base: item.base,
                     timeframe: item.timeframe,
@@ -183,15 +183,9 @@ function LockButton({ item }) {
                     riskPercent: item.riskPercent != null ? Number(item.riskPercent) : null,
                     rewardPercent: item.rewardPercent != null ? Number(item.rewardPercent) : null,
                     riskReward: item.riskReward != null ? Number(item.riskReward) : null,
-                }),
+                },
             });
-            const json = await res.json().catch(() => ({}));
-            if (!res.ok || json?.error) {
-                setErrMsg(json?.error || `Error ${res.status}`);
-                setState("error");
-            } else {
-                setState("done");
-            }
+            setState("done");
         } catch (e) {
             setErrMsg(e?.message || "Network error");
             setState("error");
@@ -403,11 +397,7 @@ export default function SignalHistoryList() {
         if (outcomeStatus) params.set("outcomeStatus", outcomeStatus);
         if (actionType) params.set("actionType", actionType);
 
-        fetch(`/api/signal-history?${params.toString()}`, { cache: "no-store" })
-            .then((res) => {
-                if (!res.ok) throw new Error("Gagal mengambil data.");
-                return res.json();
-            })
+        apiRequest("/signals/history", { cache: "no-store", query: Object.fromEntries(params.entries()) })
             .then((json) => { if (!cancelled) setData(json); })
             .catch((err) => { if (!cancelled) setError(err.message || "Gagal mengambil data."); })
             .finally(() => { if (!cancelled) setIsLoading(false); });
@@ -418,17 +408,17 @@ export default function SignalHistoryList() {
     useEffect(() => {
         if (activeTab !== "locked") return;
         let cancelled = false;
-        setIsLockedLoading(true);
-        setLockedError("");
+        Promise.resolve().then(() => {
+            if (!cancelled) {
+                setIsLockedLoading(true);
+                setLockedError("");
+            }
+        });
 
         const params = new URLSearchParams({ page: String(lockedPage) });
         if (lockedStatus) params.set("status", lockedStatus);
 
-        fetch(`/api/locked-signals?${params.toString()}`, { cache: "no-store" })
-            .then((res) => {
-                if (!res.ok) throw new Error("Gagal mengambil locked signals.");
-                return res.json();
-            })
+        apiRequest("/signals/locked", { cache: "no-store", query: Object.fromEntries(params.entries()) })
             .then((json) => { if (!cancelled) setLockedData(json); })
             .catch((err) => { if (!cancelled) setLockedError(err.message || "Gagal mengambil locked signals."); })
             .finally(() => { if (!cancelled) setIsLockedLoading(false); });

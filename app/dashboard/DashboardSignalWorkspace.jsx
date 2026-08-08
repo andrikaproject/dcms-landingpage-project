@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import ClearableSignalBoard from "@/components/ClearableSignalBoard";
 import CoinSearchForm from "./CoinSearchForm";
 import DashboardToast from "./DashboardToast";
+import { apiRequest } from "@/lib/api/client";
 
 const SIGNAL_BOARD_STORAGE_PREFIX = "dcms-dashboard-signal-board";
 const SIGNAL_FILTER_OPTIONS = [
@@ -385,6 +386,7 @@ export default function DashboardSignalWorkspace({
     initialSearchKeyword = "",
     timeframe,
     updatedAt,
+    onLocked,
 }) {
     const [, setRemovedSymbols] = useState(() => readPersistedRemovedSymbols(timeframe));
     const [signals, setSignals] = useState(() => (
@@ -451,18 +453,10 @@ export default function DashboardSignalWorkspace({
         setSearchError("");
 
         try {
-            const searchParams = new URLSearchParams({
-                symbol: activeKeyword,
-                timeframe,
-            });
-            const response = await fetch(`/api/market-signal?${searchParams.toString()}`, {
+            const payload = await apiRequest(`/market/signals/${encodeURIComponent(activeKeyword)}`, {
                 cache: "no-store",
+                query: { timeframe },
             });
-            const payload = await response.json();
-
-            if (!response.ok) {
-                throw new Error(payload.error || `Symbol ${activeKeyword} tidak ditemukan.`);
-            }
 
             setSignals((currentSignals) => {
                 const enrichedSignal = { ...payload.signal, conservativeGate: payload.conservativeGate ?? null };
@@ -559,14 +553,7 @@ export default function DashboardSignalWorkspace({
         setScamPumpError("");
 
         try {
-            const response = await fetch("/api/scam-pump-board", {
-                cache: "no-store",
-            });
-            const payload = await response.json();
-
-            if (!response.ok) {
-                throw new Error(payload.error || "Analisis Scam Pump Board gagal.");
-            }
+            const payload = await apiRequest("/market/scam-pump-board", { cache: "no-store" });
 
             const recommendations = Array.isArray(payload.recommendations)
                 ? payload.recommendations
@@ -631,6 +618,7 @@ export default function DashboardSignalWorkspace({
                             onSignalUpdate={handleSignalUpdate}
                             onSignalDelete={handleSignalDelete}
                             onToast={showToast}
+                            onLocked={onLocked}
                         />
                     </ClearableSignalBoard>
                 </>

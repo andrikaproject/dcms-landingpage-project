@@ -5,6 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import AnimatedDashboardIcon from "@/components/AnimatedDashboardIcon";
+import { AuthGuard, useAuth } from "@/components/auth/AuthProvider";
+import LogoutButton from "@/components/auth/LogoutButton";
 import {
     House,
     ArrowsLeftRight,
@@ -211,10 +213,14 @@ function MobileNav({ logoutSlot, pathname }) {
 export default function DashboardShell({ user, logoutSlot, children }) {
     const [collapsed, setCollapsed] = useState(false);
     const pathname = usePathname();
+    const auth = useAuth();
+    const resolvedUser = user || auth.user || { name: "Member", email: "", role: "USER" };
+    const resolvedLogoutSlot = logoutSlot || <LogoutButton compact />;
 
     const sidebarWidth = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
 
     return (
+        <AuthGuard>
         <div
             className="min-h-dvh bg-[#050505] text-white"
             style={{
@@ -224,8 +230,8 @@ export default function DashboardShell({ user, logoutSlot, children }) {
             <Sidebar
                 collapsed={collapsed}
                 onToggle={() => setCollapsed((current) => !current)}
-                user={user}
-                logoutSlot={logoutSlot}
+                user={resolvedUser}
+                logoutSlot={resolvedLogoutSlot}
                 pathname={pathname}
             />
             <main
@@ -233,7 +239,8 @@ export default function DashboardShell({ user, logoutSlot, children }) {
             >
                 {children}
             </main>
-            <MobileNav logoutSlot={logoutSlot} pathname={pathname} />
+            <MobileNav logoutSlot={resolvedLogoutSlot} pathname={pathname} />
         </div>
+        </AuthGuard>
     );
 }

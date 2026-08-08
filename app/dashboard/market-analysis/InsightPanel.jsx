@@ -1,6 +1,6 @@
 "use client";
 
-import { formatAbsPercent, formatPrice, formatSignedPercent, LEVEL_HELP, LEVEL_LABEL } from "./format";
+import { formatAbsPercent, formatAlertState, formatPrice, formatRangeState, formatSignedPercent, LEVEL_HELP, LEVEL_LABEL } from "./format";
 import { ChartLineUp, Info } from "@phosphor-icons/react";
 import { useState } from "react";
 
@@ -47,10 +47,16 @@ function statusSentence(payload) {
         const arah = d >= 0 ? "di atas" : "di bawah";
         return `Harga ${symbol} berada ${formatAbsPercent(d)} ${arah} ${LEVEL_LABEL[nearestLevel]}. Area ini layak dipantau sebagai level konteks.`;
     }
-    return `Harga ${symbol} sedang ${String(alertState || "").toLowerCase()}.`;
+    return `Harga ${symbol}: ${formatAlertState(alertState).toLowerCase()}.`;
 }
 
 function rangeSentence(rangeState) {
+    if (rangeState && typeof rangeState === "object") {
+        const { abovePwm, abovePdm } = rangeState;
+        if (abovePwm === true && abovePdm === true) return "Harga berada di atas PWM dan PDM, menandakan posisi di atas kedua titik tengah acuan.";
+        if (abovePwm === false && abovePdm === false) return "Harga berada di bawah PWM dan PDM, menandakan posisi di bawah kedua titik tengah acuan.";
+        if (typeof abovePwm === "boolean" || typeof abovePdm === "boolean") return "Harga berada di sisi yang berbeda terhadap PWM dan PDM; gunakan level map untuk melihat konteks lengkapnya.";
+    }
     if (rangeState === "Di dalam range mingguan") {
         return "Harga masih berada di antara PWH dan PWL. Belum ada kondisi di atas PWH atau di bawah PWL.";
     }
@@ -88,13 +94,13 @@ export default function InsightPanel({ payload, loading }) {
             </div>
             <section className="border-b border-white/10 pb-5">
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-gray-500">Current state</p>
-                <p className="mt-2 text-xl font-semibold tracking-tight text-[#B7FB5B]">{payload.alertState}</p>
+                <p className="mt-2 text-xl font-semibold tracking-tight text-[#B7FB5B]">{formatAlertState(payload.alertState)}</p>
                 <p className="mt-2 text-sm leading-relaxed text-gray-300">{statusSentence(payload)}</p>
             </section>
 
             <section className="border-b border-white/10 py-5">
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-gray-500">Weekly range</p>
-                <p className="mt-2 text-base font-semibold text-gray-100">{payload.rangeState}</p>
+                <p className="mt-2 text-base font-semibold text-gray-100">{formatRangeState(payload.rangeState)}</p>
                 <p className="mt-2 text-sm leading-relaxed text-gray-300">{rangeSentence(payload.rangeState)}</p>
             </section>
 

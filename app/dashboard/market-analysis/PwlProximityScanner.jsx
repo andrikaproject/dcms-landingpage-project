@@ -14,6 +14,7 @@ import {
     SCANNER_LEVELS,
     SCANNER_LEVEL_LABELS,
 } from "@/lib/market/pwl-proximity-scanner-core";
+import { apiRequest } from "@/lib/api/client";
 
 const percentFormatter = new Intl.NumberFormat("id-ID", {
     minimumFractionDigits: 2,
@@ -201,24 +202,9 @@ export default function PwlProximityScanner({ onOpen4H }) {
         setExpanded(true);
 
         try {
-            const params = new URLSearchParams({ level: selectedLevel });
-            const response = await fetch(`/api/market-analysis/pwl-scanner?${params.toString()}`, {
-                method: "GET",
-                headers: { Accept: "application/json" },
-            });
-            const body = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                const message =
-                    typeof body.error === "string"
-                        ? body.error
-                        : body.error?.message;
-                throw new Error(
-                    message || "Scanner belum bisa dijalankan. Coba lagi dalam beberapa saat."
-                );
-            }
-
+            const body = await apiRequest("/market-analysis/level-scanner", { query: { level: selectedLevel } });
             setData(body);
-            setCacheStatus(response.headers.get("X-PWL-Scanner-Cache") || "");
+            setCacheStatus(body.cacheStatus || "");
             setNow(Date.now());
         } catch (cause) {
             setError(

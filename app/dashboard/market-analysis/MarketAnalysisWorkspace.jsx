@@ -8,6 +8,7 @@ import PwlProximityScanner from "./PwlProximityScanner";
 import MarketWatchlist from "./MarketWatchlist";
 import InsightPanel from "./InsightPanel";
 import { normalizeInput } from "./normalize";
+import { apiRequest, ApiError } from "@/lib/api/client";
 
 const DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"];
 
@@ -35,12 +36,15 @@ async function fetchKeyLevels(symbol, basis, session, interval, signal, forceRef
     const params = new URLSearchParams({ symbol, basis, interval });
     if (basis === "session") params.set("session", session);
     if (forceRefresh) params.set("refresh", "1");
-    const res = await fetch(`/api/market-analysis/key-levels?${params.toString()}`, { signal });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-        return { ok: false, status: res.status, error: body.error || "Data market belum bisa dimuat." };
+    try {
+        const body = await apiRequest("/market-analysis/key-levels", {
+            signal,
+            query: Object.fromEntries(params.entries()),
+        });
+        return { ok: true, payload: body };
+    } catch (error) {
+        return { ok: false, status: error instanceof ApiError ? error.status : 0, error: error.message || "Data market belum bisa dimuat." };
     }
-    return { ok: true, payload: body };
 }
 
 // Module-scoped last-good payloads, keyed per symbol+context. Survives client

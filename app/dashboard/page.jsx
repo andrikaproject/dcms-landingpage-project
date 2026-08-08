@@ -1,17 +1,13 @@
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { getMarketDashboard } from "@/lib/market-dashboard";
-import { evaluateOpenSnapshotsForSymbolTimeframe } from "@/lib/learning/outcome-evaluator";
-import { removeLockedSignalAction } from "@/app/actions/lock-signal";
-import { refreshLockedSignalsForUser } from "@/lib/locked-signals";
-import { countPendingUsers } from "@/lib/users";
 import DashboardShell from "@/components/DashboardShell";
-import LockSignalAutoRefresh from "@/components/LockSignalAutoRefresh";
-import LockedSignalRefreshButton from "@/components/LockedSignalRefreshButton";
 import DashboardSignalWorkspace from "./DashboardSignalWorkspace";
 import { buildPartialTpPlan } from "@/lib/market/partial-tp";
+import { apiRequest } from "@/lib/api/client";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const FONT_NEBULICA = "Nebulica, sans-serif";
 const FONT_CHAKRA = "var(--font-chakra-petch), Chakra Petch, sans-serif";
@@ -260,7 +256,7 @@ function SignalProgress({ signal }) {
     );
 }
 
-function LockedSignalList({ lockedSignals }) {
+function LockedSignalList({ lockedSignals, onRefresh, onDeleted, refreshing }) {
     return (
         <section id="lock-signal-list" className="mt-6 scroll-mt-28 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 sm:p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -270,7 +266,14 @@ function LockedSignalList({ lockedSignals }) {
                 </div>
                 <div className="flex items-center gap-3">
                     <p className="font-chakra text-xs text-zinc-500">Auto refresh setiap 5 menit.</p>
-                    <LockedSignalRefreshButton />
+                    <button
+                        type="button"
+                        onClick={onRefresh}
+                        disabled={refreshing}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-zinc-600 px-3 py-1.5 font-chakra text-[11px] font-bold text-zinc-400 transition hover:border-[#B7FB5B]/40 hover:text-[#B7FB5B] disabled:cursor-wait disabled:opacity-50"
+                    >
+                        {refreshing ? "Memperbarui…" : "Refresh Harga"}
+                    </button>
                 </div>
             </div>
 
@@ -281,7 +284,7 @@ function LockedSignalList({ lockedSignals }) {
             ) : (
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] gap-4">
                     {lockedSignals.map((signal) => (
-                        <LockedSignalCard key={signal.id} signal={signal} />
+                        <LockedSignalCard key={signal.id} signal={signal} onDeleted={onDeleted} />
                     ))}
                 </div>
             )}
@@ -324,10 +327,22 @@ function LockedPartialTpPlan({ signal }) {
     );
 }
 
-function LockedSignalCard({ signal }) {
+function LockedSignalCard({ signal, onDeleted }) {
     const styles = biasStyles(signal.bias);
     const sinceEntry = Number(signal.sinceEntryPercent || 0);
     const sinceEntryTone = sinceEntry >= 0 ? "text-[#a3e635]" : "text-[#f87171]";
+    const [deleting, setDeleting] = useState(false);
+
+    async function handleDelete() {
+        if (deleting) return;
+        setDeleting(true);
+        try {
+            await apiRequest(`/signals/locked/${encodeURIComponent(signal.id)}`, { method: "DELETE" });
+            onDeleted(signal.id);
+        } finally {
+            setDeleting(false);
+        }
+    }
 
     return (
         <article className="@container relative overflow-hidden rounded-lg bg-gradient-to-br from-[#374151] to-[#111827] p-4 sm:p-5">
@@ -349,32 +364,22 @@ function LockedSignalCard({ signal }) {
                             <p style={FIGMA_TEXT.textXsBoldWhite}>Current</p>
                             <p style={{ ...FIGMA_TEXT.textBaseMediumWhite, fontWeight: 700 }}>{formatPriceLabel(signal.currentPrice)}</p>
                         </div>
-                        <form action={removeLockedSignalAction}>
-                            <input type="hidden" name="signalId" value={signal.id} />
-                            <button
-                                type="submit"
-                                className="grid size-9 place-items-center rounded-lg border border-red-500/20 bg-red-500/10 text-red-300 transition hover:border-red-400/40 hover:bg-red-500/20 hover:text-red-100 active:scale-95"
-                                aria-label={`Remove locked signal ${signal.base}`}
-                                title="Remove locked signal"
-                            >
-                                <svg
-                                    className="size-4"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    aria-hidden="true"
-                                >
-                                    <path d="M3 6h18" />
-                                    <path d="M8 6V4h8v2" />
-                                    <path d="m19 6-1 14H6L5 6" />
-                                    <path d="M10 11v5" />
-                                    <path d="M14 11v5" />
-                                </svg>
-                            </button>
-                        </form>
+                        <button
+                            type="button"
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="grid size-9 place-items-center rounded-lg border border-red-500/20 bg-red-500/10 text-red-300 transition hover:border-red-400/40 hover:bg-red-500/20 hover:text-red-100 active:scale-95 disabled:opacity-50"
+                            aria-label={`Remove locked signal ${signal.base}`}
+                            title="Remove locked signal"
+                        >
+                            <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4h8v2" />
+                                <path d="m19 6-1 14H6L5 6" />
+                                <path d="M10 11v5" />
+                                <path d="M14 11v5" />
+                            </svg>
+                        </button>
                     </div>
                 </div>
 
@@ -396,93 +401,6 @@ function LockedSignalCard({ signal }) {
                 </div>
             </div>
         </article>
-    );
-}
-
-function Icon({ name }) {
-    const iconProps = {
-        width: 20,
-        height: 20,
-        viewBox: "0 0 24 24",
-        fill: "none",
-        stroke: "currentColor",
-        strokeWidth: 2,
-        strokeLinecap: "round",
-        strokeLinejoin: "round",
-        "aria-hidden": true,
-    };
-
-    const paths = {
-        dashboard: (
-            <>
-                <rect x="3" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="14" width="7" height="7" rx="1" />
-                <rect x="3" y="14" width="7" height="7" rx="1" />
-            </>
-        ),
-        chart: (
-            <>
-                <path d="M3 3v18h18" />
-                <path d="m7 15 4-4 3 3 5-7" />
-            </>
-        ),
-        ebook: (
-            <>
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z" />
-            </>
-        ),
-        bot: (
-            <>
-                <rect x="5" y="8" width="14" height="10" rx="3" />
-                <path d="M12 8V4" />
-                <path d="M9 13h.01" />
-                <path d="M15 13h.01" />
-                <path d="M8 20h8" />
-            </>
-        ),
-        bell: (
-            <>
-                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </>
-        ),
-        logout: (
-            <>
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <path d="m16 17 5-5-5-5" />
-                <path d="M21 12H9" />
-            </>
-        ),
-        menu: (
-            <>
-                <path d="M4 6h16" />
-                <path d="M4 12h16" />
-                <path d="M4 18h16" />
-            </>
-        ),
-    };
-
-    return <svg {...iconProps}>{paths[name]}</svg>;
-}
-
-function LogoutForm({ compact = false }) {
-    return (
-        <form
-            action={async () => {
-                "use server";
-                const { signOut } = await import("@/auth");
-                await signOut({ redirectTo: "/login" });
-            }}
-        >
-            <button
-                className={`grid place-items-center rounded-lg border border-[#36353d] bg-gradient-to-b from-[#25242a] to-[#17161c] text-[#949398] transition hover:text-white ${compact ? "size-10" : "size-8"}`}
-                aria-label="Logout"
-            >
-                <Icon name="logout" />
-            </button>
-        </form>
     );
 }
 
@@ -584,7 +502,7 @@ function MiniMetricCard({ label, value, tone, meta }) {
     );
 }
 
-function TimeframeMenu({ current, symbol }) {
+function TimeframeMenu({ current, onChange }) {
     const options = ["1m", "15m", "1h", "4h", "1d"];
 
     return (
@@ -606,9 +524,10 @@ function TimeframeMenu({ current, symbol }) {
             </summary>
             <div className="absolute right-0 top-full z-50 flex w-[92px] origin-top flex-col overflow-hidden rounded-b-md border border-t-0 border-[#36353d] bg-[#17161c] opacity-0 shadow-xl transition duration-300 ease-out group-open:opacity-100 group-open:animate-[timeframe-menu_180ms_ease-out]">
                 {options.map((option) => (
-                    <Link
+                    <button
                         key={option}
-                        href={`/dashboard?timeframe=${option}${symbol ? `&symbol=${encodeURIComponent(symbol)}` : ""}`}
+                        type="button"
+                        onClick={() => onChange(option)}
                         className={`px-3 py-2 text-center uppercase transition ${option === current
                             ? "bg-[#d9f99d] text-[#16161e]"
                             : "text-[#949398] hover:bg-white/[0.04] hover:text-white"
@@ -616,14 +535,14 @@ function TimeframeMenu({ current, symbol }) {
                         style={FIGMA_TEXT.textXsMedium}
                     >
                         {option}
-                    </Link>
+                    </button>
                 ))}
             </div>
         </details>
     );
 }
 
-function DashboardOverview({ marketDashboard, session, pendingCount, symbol }) {
+function DashboardOverview({ marketDashboard, session, pendingCount, onTimeframeChange }) {
     const usdtDominanceTrendRegime = marketDashboard.usdtDominanceTrend?.regime || "UNKNOWN";
     const regimeText = marketDashboard.usdtDominance.market
         ? marketDashboard.usdtDominance.market.toLowerCase().replace(/^market\s*/, "")
@@ -667,7 +586,7 @@ function DashboardOverview({ marketDashboard, session, pendingCount, symbol }) {
                                 Market its Still {regimeText}
                             </h2>
                         </div>
-                        <TimeframeMenu current={marketDashboard.timeframe} symbol={symbol} />
+                        <TimeframeMenu current={marketDashboard.timeframe} onChange={onTimeframeChange} />
                     </div>
                 </article>
             </section>
@@ -675,65 +594,111 @@ function DashboardOverview({ marketDashboard, session, pendingCount, symbol }) {
     );
 }
 
-export default async function DashboardPage({ searchParams }) {
-    const session = await auth();
+export default function DashboardPage() {
+    const { user } = useAuth();
+    const [marketDashboard, setMarketDashboard] = useState(null);
+    const [lockedSignals, setLockedSignals] = useState([]);
+    const [pendingCount, setPendingCount] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState("");
+    const [query, setQuery] = useState({ timeframe: "15m", symbol: "" });
 
-    if (!session) redirect("/login");
+    useEffect(() => {
+        const syncQueryFromUrl = () => {
+            const params = new URLSearchParams(window.location.search);
+            setQuery({ timeframe: params.get("timeframe") || "15m", symbol: params.get("symbol") || "" });
+        };
 
-    const params = await searchParams;
-    const timeframe = params?.timeframe || "15m";
-    const symbol = params?.symbol || "";
+        syncQueryFromUrl();
+        window.addEventListener("popstate", syncQueryFromUrl);
+        return () => window.removeEventListener("popstate", syncQueryFromUrl);
+    }, []);
 
-    const [marketDashboard, pendingCount, lockedSignals] = await Promise.all([
-        getMarketDashboard({ timeframe, symbol }),
-        session.user.role === "ADMIN"
-            ? countPendingUsers()
-            : 0,
-        refreshLockedSignalsForUser(session.user.email),
-    ]);
+    const handleTimeframeChange = useCallback((timeframe) => {
+        if (query.timeframe === timeframe) return;
 
-    if (marketDashboard.searchedSymbol) {
-        const searchedSignal = marketDashboard.signals.find(
-            (s) => s.symbol === marketDashboard.searchedSymbol && s.marketType === "CEX"
-        );
-        if (searchedSignal?.source) {
-            evaluateOpenSnapshotsForSymbolTimeframe({
-                symbol: searchedSignal.symbol,
-                timeframe: marketDashboard.timeframe,
-                source: searchedSignal.source,
-                currentBias: searchedSignal.bias,
-            }).catch(() => {});
+        const next = { ...query, timeframe };
+        const params = new URLSearchParams({ timeframe });
+        if (next.symbol) params.set("symbol", next.symbol);
+        window.history.pushState({}, "", `${window.location.pathname}?${params.toString()}`);
+        setQuery(next);
+    }, [query]);
+
+    const loadDashboard = useCallback(async ({ quiet = false } = {}) => {
+        if (!user) return;
+        if (quiet) setRefreshing(true);
+        else setLoading(true);
+        setError("");
+        try {
+            const requests = [
+                apiRequest("/market/dashboard", { query }),
+                apiRequest("/signals/locked", { query: { page: 1, status: "ACTIVE" } }),
+            ];
+            if (user.role === "ADMIN") requests.push(apiRequest("/admin/users", { query: { page: 1, limit: 100 } }));
+            const [dashboardData, lockedData, usersData] = await Promise.all(requests);
+            setMarketDashboard(dashboardData);
+            setLockedSignals(lockedData.items || lockedData.lockedSignals || []);
+            setPendingCount((usersData?.items || usersData?.users || []).filter((item) => item.statusReview === "PENDING").length);
+        } catch (loadError) {
+            setError(loadError instanceof Error ? loadError.message : "Dashboard gagal dimuat.");
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
         }
-    }
+    }, [query, user]);
+
+    useEffect(() => {
+        loadDashboard();
+    }, [loadDashboard]);
+
+    useEffect(() => {
+        if (!user) return undefined;
+        const interval = window.setInterval(() => loadDashboard({ quiet: true }), 5 * 60 * 1000);
+        return () => window.clearInterval(interval);
+    }, [loadDashboard, user]);
+
+    const session = { user: user || {} };
 
     return (
-        <DashboardShell
-            user={{
-                name: session.user.name,
-                email: session.user.email,
-                uuidBitunix: session.user.uuidBitunix,
-                role: session.user.role,
-            }}
-            logoutSlot={<LogoutForm compact />}
-        >
-            <LockSignalAutoRefresh />
+        <DashboardShell>
             <div className="mx-auto w-full max-w-[1600px] px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+                {loading && <div className="grid min-h-[50vh] place-items-center font-chakra text-sm text-zinc-500">Memuat dashboard…</div>}
+                {error && !loading && (
+                    <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-5 font-chakra text-sm text-red-200">
+                        {error}
+                        <button type="button" onClick={() => loadDashboard()} className="ml-3 underline">Coba lagi</button>
+                    </div>
+                )}
+                {marketDashboard && !loading && (
+                    <>
                 <DashboardOverview
                     marketDashboard={marketDashboard}
                     session={session}
                     pendingCount={pendingCount}
-                    symbol={symbol}
+                    onTimeframeChange={handleTimeframeChange}
                 />
 
-                <LockedSignalList lockedSignals={lockedSignals} />
+                <LockedSignalList
+                    lockedSignals={lockedSignals}
+                    refreshing={refreshing}
+                    onRefresh={() => loadDashboard({ quiet: true })}
+                    onDeleted={(id) => setLockedSignals((items) => items.filter((item) => item.id !== id))}
+                />
 
                 <DashboardSignalWorkspace
                     key={marketDashboard.timeframe}
                     initialSignals={marketDashboard.signals}
-                    initialSearchKeyword={symbol}
+                    initialSearchKeyword={query.symbol}
                     timeframe={marketDashboard.timeframe}
                     updatedAt={marketDashboard.updatedAt}
+                    onLocked={(lockedSignal) => setLockedSignals((items) => [
+                        lockedSignal,
+                        ...items.filter((item) => item.id !== lockedSignal.id),
+                    ])}
                 />
+                    </>
+                )}
             </div>
         </DashboardShell>
     );

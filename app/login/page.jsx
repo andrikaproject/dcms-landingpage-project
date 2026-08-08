@@ -2,12 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useAction } from "next-safe-action/hooks";
 import { useRef, useState } from "react";
-import { validateLoginCredentials } from "@/app/actions/login";
-import { getFirstActionError } from "@/lib/action-result";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function LoginPage() {
     const [identifier, setIdentifier] = useState("");
@@ -19,7 +16,7 @@ export default function LoginPage() {
     const [loadingMessage, setLoadingMessage] = useState("");
     const inputRef = useRef(null);
     const router = useRouter();
-    const { executeAsync: validateCredentials, isExecuting: isValidating } = useAction(validateLoginCredentials);
+    const { login } = useAuth();
 
     const closePopup = () => {
         setPopupMessage("");
@@ -48,40 +45,10 @@ export default function LoginPage() {
 
         try {
             setLoadingMessage("Memvalidasi akun...");
-            const validation = await validateCredentials({
-                loginIdentifier: trimmedIdentifier,
-                password,
-            });
-
-            if (!validation?.data?.success) {
-                setError(getFirstActionError(validation, "Login gagal."));
-                setIsLoading(false);
-                setLoadingMessage("");
-                return;
-            }
-
-            setLoadingMessage("Membuka dashboard...");
-
-            const result = await signIn("credentials", {
-                loginIdentifier: trimmedIdentifier,
-                uid: trimmedIdentifier,
-                password,
-                redirect: false,
-            });
-
-            if (result?.ok) {
-                setIsSuccess(true);
-                setLoadingMessage("Menyiapkan dashboard...");
-                window.setTimeout(() => {
-                    router.replace("/dashboard");
-                    router.refresh();
-                }, 650);
-                return;
-            }
-
-            setPopupMessage("Login gagal. Silakan coba beberapa saat lagi.");
-            setLoadingMessage("");
-            setIsLoading(false);
+            await login(trimmedIdentifier, password);
+            setIsSuccess(true);
+            setLoadingMessage("Menyiapkan dashboard...");
+            window.setTimeout(() => router.replace("/dashboard"), 350);
         } catch (error) {
             setPopupMessage(
                 error.message ||
@@ -92,7 +59,7 @@ export default function LoginPage() {
         }
     };
 
-    const isSubmitting = isLoading || isValidating;
+    const isSubmitting = isLoading;
 
     return (
         <main className="relative min-h-dvh overflow-hidden bg-[linear-gradient(180deg,#23252a_0%,#111315_100%)] font-nebulica text-white">

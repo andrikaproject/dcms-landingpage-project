@@ -1,15 +1,12 @@
-import { auth } from "@/auth";
+"use client";
+
 import { LandingPageClient } from "@/components/LandingPageClient";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 function LandingLogoutForm() {
+  const { logout } = useAuth();
   return (
-    <form
-      action={async () => {
-        "use server";
-        const { signOut } = await import("@/auth");
-        await signOut({ redirectTo: "/" });
-      }}
-    >
+    <form onSubmit={async (event) => { event.preventDefault(); await logout(); }}>
       <button
         type="submit"
         className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left font-chakra text-sm font-bold text-red-300 transition hover:bg-red-500/10 hover:text-red-200"
@@ -25,12 +22,8 @@ function LandingLogoutForm() {
   );
 }
 
-export default async function LandingPage() {
-  const session = await auth();
-  const user = session?.user as typeof session.user & {
-    role?: string | null;
-    uuidBitunix?: string | null;
-  } | undefined;
+export default function LandingPage() {
+  const { user } = useAuth();
 
   return (
     <LandingPageClient

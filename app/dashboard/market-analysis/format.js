@@ -23,6 +23,25 @@ export function formatSignedPercent(value) {
     return `${sign}${priceFormatter.format(Math.abs(value))}%`;
 }
 
+export function formatAlertState(alertState) {
+    if (typeof alertState === "string") return alertState || "Tidak ada proximity alert";
+    if (alertState?.active && typeof alertState.message === "string") return alertState.message;
+    return "Tidak ada proximity alert";
+}
+
+export function formatRangeState(rangeState) {
+    if (typeof rangeState === "string") return rangeState || "Range tidak tersedia";
+
+    if (rangeState && typeof rangeState === "object") {
+        const states = [];
+        if (typeof rangeState.abovePwm === "boolean") states.push(`Harga ${rangeState.abovePwm ? "di atas" : "di bawah"} PWM`);
+        if (typeof rangeState.abovePdm === "boolean") states.push(`Harga ${rangeState.abovePdm ? "di atas" : "di bawah"} PDM`);
+        return states.length ? states.join(" · ") : "Range tidak tersedia";
+    }
+
+    return "Range tidak tersedia";
+}
+
 export const LEVEL_LABEL = {
     do: "DO",
     pdh: "PDH",
@@ -49,7 +68,7 @@ export const LEVEL_HELP = {
 export function buildChartSummary(payload) {
     if (!payload) return "";
     const { symbol, currentPrice, levels, alertState } = payload;
-    const parts = [`${symbol} ${alertState || ""}`.trim() + "."];
+    const parts = [`${symbol} ${formatAlertState(alertState)}.`];
     parts.push(`Harga saat ini ${formatPrice(currentPrice)}.`);
     for (const key of ["do", "pdl", "pdh", "pdm", "wo", "pwl", "pwh", "pwm"]) {
         if (Number.isFinite(levels?.[key])) {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { apiRequest } from "@/lib/api/client";
 
 function ResetPasswordForm() {
     const searchParams = useSearchParams();
@@ -26,22 +27,21 @@ function ResetPasswordForm() {
             return;
         }
 
-        const response = await fetch("/api/password-reset/confirm", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token, password }),
-        });
-        const result = await response.json();
-
-        if (!response.ok || result.error) {
-            setError(result.error || "Tidak bisa memperbarui password.");
-        } else {
-            setMessage(result.success);
+        try {
+            const result = await apiRequest("/auth/password-reset/confirm", {
+                method: "POST",
+                auth: false,
+                retryAuth: false,
+                body: { token, password },
+            });
+            setMessage(result.message);
             setPassword("");
             setConfirmPassword("");
+        } catch (requestError) {
+            setError(requestError.message || "Tidak bisa memperbarui password.");
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     }
 
     return (

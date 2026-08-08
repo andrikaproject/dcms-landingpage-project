@@ -4,16 +4,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useAction } from "next-safe-action/hooks";
 import gsap from "gsap";
-import { registerBitunixUser } from "@/app/actions/register";
-import { getFirstActionError } from "@/lib/action-result";
+import { apiRequest } from "@/lib/api/client";
 
 export default function RegisterPage() {
     const router = useRouter();
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
-    const { executeAsync, isExecuting } = useAction(registerBitunixUser);
+    const [isExecuting, setIsExecuting] = useState(false);
 
     useEffect(() => {
         gsap.from(".register-card", {
@@ -30,22 +28,28 @@ export default function RegisterPage() {
         setSuccess("");
 
         const formData = new FormData(e.target);
-        const result = await executeAsync({
-            name: formData.get("name"),
-            uuidBitunix: formData.get("uuidBitunix"),
-            email: formData.get("email"),
-            password: formData.get("password"),
-        });
-
-        if (result?.data?.success) {
-            setSuccess(result.data.success);
+        setIsExecuting(true);
+        try {
+            const result = await apiRequest("/auth/bitunix/register", {
+                method: "POST",
+                auth: false,
+                retryAuth: false,
+                body: {
+                    name: formData.get("name"),
+                    uid: formData.get("uuidBitunix"),
+                    email: formData.get("email"),
+                    password: formData.get("password"),
+                },
+            });
+            setSuccess(result.message || "Registrasi berhasil. Silakan login.");
             setTimeout(() => {
                 router.push("/login");
             }, 3000);
-            return;
+        } catch (requestError) {
+            setError(requestError.message || "Registrasi gagal.");
+        } finally {
+            setIsExecuting(false);
         }
-
-        setError(getFirstActionError(result, "Registrasi gagal."));
     }
 
     return (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { API_BASE_URL } from '@/lib/api/client';
 
 type VitalName = 'LCP' | 'CLS' | 'INP';
 
@@ -24,17 +25,12 @@ type InteractionEntry = PerformanceEntry & {
 
 function sendToAnalytics(payload: VitalPayload) {
     const body = JSON.stringify(payload);
-
-    if (navigator.sendBeacon) {
-        navigator.sendBeacon('/api/analytics/vitals', body);
-        return;
-    }
-
-    fetch('/api/analytics/vitals', {
+    fetch(`${API_BASE_URL}/analytics/vitals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
         keepalive: true,
+        credentials: 'include',
     }).catch(() => {
         // Vitals should never block the interface.
     });

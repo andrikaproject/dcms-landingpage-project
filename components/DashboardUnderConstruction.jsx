@@ -1,55 +1,11 @@
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
+"use client";
+
 import Link from "next/link";
 import DashboardShell from "@/components/DashboardShell";
 
-function LogoutForm() {
+export default function DashboardUnderConstruction({ title, description }) {
     return (
-        <form
-            action={async () => {
-                "use server";
-                const { signOut } = await import("@/auth");
-                await signOut({ redirectTo: "/login" });
-            }}
-        >
-            <button
-                className="grid size-10 place-items-center rounded-lg border border-[#36353d] bg-gradient-to-b from-[#25242a] to-[#17161c] text-[#949398] transition hover:text-white"
-                aria-label="Logout"
-            >
-                <svg
-                    className="size-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                >
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <path d="m16 17 5-5-5-5" />
-                    <path d="M21 12H9" />
-                </svg>
-            </button>
-        </form>
-    );
-}
-
-export default async function DashboardUnderConstruction({ title, description }) {
-    const session = await auth();
-
-    if (!session) redirect("/login");
-
-    return (
-        <DashboardShell
-            user={{
-                name: session.user.name,
-                email: session.user.email,
-                uuidBitunix: session.user.uuidBitunix,
-                role: session.user.role,
-            }}
-            logoutSlot={<LogoutForm />}
-        >
+        <DashboardShell>
             <main className="mx-auto flex min-h-dvh w-full max-w-[1200px] items-center px-4 py-8 sm:px-6 lg:px-8">
                 <section className="w-full overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/70 p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.25)] sm:p-8 lg:p-10">
                     <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { lockSignalAction } from "@/app/actions/lock-signal";
+import { apiRequest } from "@/lib/api/client";
 
 const FONT_CHAKRA = "var(--font-chakra-petch), Chakra Petch, sans-serif";
 const FIGMA_TEXT = {
@@ -136,6 +136,51 @@ function getRangePercent(value, min, max) {
     return clampPercent((number - min) / (max - min) * 100);
 }
 
+function hasNumericValue(value) {
+    return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+}
+
+function hasActiveTradePlan(signal) {
+    return hasNumericValue(signal?.entry)
+        && hasNumericValue(signal?.sl)
+        && hasNumericValue(signal?.tp1)
+        && hasNumericValue(signal?.tp2 ?? signal?.tp);
+}
+
+function NoTradeSetup({ detail = false }) {
+    return (
+        <div className={`rounded-lg border border-sky-400/20 bg-sky-500/10 ${detail ? "p-4" : "p-3"}`}>
+            <p className="font-chakra text-xs font-bold uppercase tracking-wide text-sky-300">Belum ada setup entry</p>
+            <p className="mt-1 font-chakra text-xs leading-5 text-zinc-300">
+                Signal masih netral. Entry, stop loss, TP1, dan TP2 akan tersedia setelah arah market terkonfirmasi.
+            </p>
+        </div>
+    );
+}
+
+function normalizeVolumeProfile(rawProfile, profileMin, profileMax) {
+    if (!Array.isArray(rawProfile)) return [];
+
+    const min = Number(profileMin);
+    const max = Number(profileMax);
+    const step = Number.isFinite(min) && Number.isFinite(max) && max > min
+        ? (max - min) / rawProfile.length
+        : 0;
+
+    return rawProfile.map((row, index) => {
+        const isObject = row !== null && typeof row === "object" && !Array.isArray(row);
+        const volume = Number(isObject ? row.volume : row);
+        const apiPrice = Number(isObject ? row.price : null);
+        const fallbackPrice = step ? min + step * (index + 0.5) : null;
+
+        return {
+            price: Number.isFinite(apiPrice) ? apiPrice : fallbackPrice,
+            volume: Number.isFinite(volume) ? volume : 0,
+            isLegacyPercent: !isObject,
+        };
+    });
+}
+
 function IndicatorPill({ label, value, tone, wide = false }) {
     return (
         <div className={`flex min-h-10 min-w-0 flex-col items-center justify-center gap-0.5 rounded-md bg-[#374151]/90 px-2 py-1 sm:min-h-12 sm:rounded-lg sm:px-3 ${wide ? "col-span-2" : ""}`}>
@@ -195,26 +240,16 @@ function MobileSignalLevel({ label, value }) {
 }
 
 function SignalProgress({ signal }) {
+    if (!hasActiveTradePlan(signal)) {
+        return <NoTradeSetup />;
+    }
+
     const levels = [
         { key: "sl", label: "SL", value: signal.sl },
         { key: "entry", label: "Entry", value: signal.entry },
         { key: "tp1", label: "TP1", value: signal.tp1 },
         { key: "tp2", label: "TP2", value: signal.tp2 || signal.tp },
-    ].filter((level) => Number.isFinite(Number(level.value)));
-
-    if (levels.length < 2) {
-        return (
-            <div className="flex flex-col gap-2 sm:gap-3">
-                <div className="h-1.5 w-full rounded-[5px] bg-[#334155] sm:h-2.5" />
-                <div className="grid grid-cols-2 gap-2 text-white sm:grid-cols-4 sm:gap-4">
-                    <MobileSignalLevel label="SL" value={formatPriceLabel(signal.sl)} />
-                    <MobileSignalLevel label="Entry" value={formatPriceLabel(signal.entry)} />
-                    <MobileSignalLevel label="TP1" value={formatPriceLabel(signal.tp1)} />
-                    <MobileSignalLevel label="TP2" value={formatPriceLabel(signal.tp2 || signal.tp)} />
-                </div>
-            </div>
-        );
-    }
+    ].filter((level) => hasNumericValue(level.value));
 
     const numericValues = levels.map((level) => Number(level.value));
     const min = Math.min(...numericValues);
@@ -351,38 +386,6 @@ function PartialTpPlanCompact({ partialTpPlan }) {
             </p>
         </div>
     );
-}
-
-function SignalHiddenInputs({ signal }) {
-    const fields = {
-        symbol: signal.symbol,
-        base: signal.base,
-        timeframe: signal.timeframe || "15m",
-        bias: signal.bias || "neutral",
-        source: signal.source || "",
-        marketType: signal.marketType || "CEX",
-        entry: signal.entry,
-        price: signal.price,
-        sl: signal.sl,
-        tp1: signal.tp1,
-        tp2: signal.tp2 || signal.tp,
-        rsi: signal.rsi,
-        emaFast: signal.emaFast,
-        emaSlow: signal.emaSlow,
-        fastPeriod: signal.fastPeriod,
-        slowPeriod: signal.slowPeriod,
-        stochK: signal.stochK,
-        stochD: signal.stochD,
-        riskPercent: signal.riskPercent,
-        rewardPercent: signal.rewardPercent,
-        riskReward: signal.riskReward,
-        sinceEntryPercent: signal.sinceEntryPercent,
-        progressPercent: signal.progressPercent,
-    };
-
-    return Object.entries(fields).map(([key, value]) => (
-        <input key={key} type="hidden" name={key} value={value ?? ""} />
-    ));
 }
 
 function ReanalyzeButton({ signal, selectedSymbol, cooldownRemaining, onReanalyze }) {
@@ -847,8 +850,7 @@ function VpvrDetailSection({ signal }) {
                 setHoveredBin(null);
             }
         });
-        fetch(`/api/vpvr?symbol=${signal.symbol}&period=${period}`)
-            .then((r) => r.json())
+        apiRequest("/market/vpvr", { query: { symbol: signal.symbol, period } })
             .then((data) => { if (!cancelled) { setVpvrData(data); setLoadingVpvr(false); } })
             .catch(() => { if (!cancelled) setLoadingVpvr(false); });
         return () => { cancelled = true; };
@@ -857,13 +859,15 @@ function VpvrDetailSection({ signal }) {
     const poc = Number(vpvrData?.poc ?? signal.poc);
     const vah = Number(vpvrData?.vah ?? signal.vah);
     const val = Number(vpvrData?.val ?? signal.val);
-    const profile = Array.isArray(vpvrData?.volumeProfile) ? vpvrData.volumeProfile
-        : (Array.isArray(signal.volumeProfile) ? signal.volumeProfile : []);
     const profileMin = Number(vpvrData?.profileMin ?? signal.profileMin);
     const profileMax = Number(vpvrData?.profileMax ?? signal.profileMax);
+    const rawProfile = Array.isArray(vpvrData?.volumeProfile) ? vpvrData.volumeProfile
+        : (Array.isArray(signal.volumeProfile) ? signal.volumeProfile : []);
+    const profile = normalizeVolumeProfile(rawProfile, profileMin, profileMax);
+    const peakVolume = Math.max(0, ...profile.map((bin) => bin.volume));
 
     const pocBin = profile.length > 0
-        ? profile.reduce((best, v, i) => (v > profile[best] ? i : best), 0)
+        ? profile.reduce((best, bin, index) => (bin.volume > profile[best].volume ? index : best), 0)
         : -1;
 
     const priceVsPoc = Number.isFinite(price) && Number.isFinite(poc)
@@ -881,7 +885,7 @@ function VpvrDetailSection({ signal }) {
         : `${vpvrData?.candleCount ?? "–"} candle 15m · 24 jam terakhir`;
 
     function binPrice(i) {
-        return profileMin + i * profileStep + profileStep / 2;
+        return profile[i]?.price ?? profileMin + i * profileStep + profileStep / 2;
     }
 
     function binLabel(i) {
@@ -942,7 +946,9 @@ function VpvrDetailSection({ signal }) {
                                                 {binLabel(hoveredBin)}
                                             </span>
                                         )}
-                                        Volume {profile[hoveredBin]}%
+                                        Volume {profile[hoveredBin]?.isLegacyPercent
+                                            ? `${profile[hoveredBin].volume}%`
+                                            : formatVolume(profile[hoveredBin]?.volume)}
                                     </span>
                                     <span className="font-chakra text-xs font-bold text-white">
                                         {hasRange ? formatPriceLabel(binPrice(hoveredBin)) : "–"}
@@ -952,9 +958,10 @@ function VpvrDetailSection({ signal }) {
                         </div>
 
                         <div className="flex flex-col-reverse" onMouseLeave={() => setHoveredBin(null)}>
-                            {profile.map((pct, i) => {
+                            {profile.map((bin, i) => {
                                 const isPoc = i === pocBin;
                                 const isHovered = hoveredBin === i;
+                                const width = peakVolume > 0 ? bin.volume / peakVolume * 100 : 0;
                                 return (
                                     <div
                                         key={i}
@@ -968,7 +975,7 @@ function VpvrDetailSection({ signal }) {
                                                 : isHovered ? "bg-[#8AEF5A]/80"
                                                 : "bg-[#8AEF5A]/30"
                                             }`}
-                                            style={{ width: `${Math.max(2, pct)}%` }}
+                                            style={{ width: `${Math.max(2, width)}%` }}
                                         />
                                         {isHovered && (
                                             <div className="ml-1.5 h-px flex-1 border-t border-dashed border-white/10" />
@@ -1383,6 +1390,7 @@ function SignalDetailSideout({ signal, onClose }) {
     const narrative = deriveSignalNarrative(signal);
     const decision = deriveDecisionSummary(signal);
     const tradePlan = deriveTradePlanDescriptions(signal);
+    const tradePlanAvailable = hasActiveTradePlan(signal);
     const confluence = deriveKeyConfluence(signal);
     const usdtDominanceWarnings = Array.isArray(signal.usdtDominanceTrend?.warnings)
         ? signal.usdtDominanceTrend.warnings.filter(Boolean)
@@ -1446,26 +1454,32 @@ function SignalDetailSideout({ signal, onClose }) {
 
                         <section className="mt-8">
                             <DetailSectionHeader>Conditional Trade Plan</DetailSectionHeader>
-                            <div className="mt-3">
-                                <TradePlanRow
-                                    label="Entry"
-                                    title={`${formatPriceLabel(signal.entry)} retest confirmation`}
-                                    description={tradePlan.entryDesc}
-                                />
-                                <TradePlanRow
-                                    label="SL"
-                                    title={`${formatPriceLabel(signal.sl)} invalidation area`}
-                                    description={tradePlan.slDesc}
-                                />
-                                <TradePlanRow
-                                    label="TP"
-                                    title={`${formatPriceLabel(signal.tp1)} then ${formatPriceLabel(signal.tp2 || signal.tp)}`}
-                                    description={tradePlan.tpDesc}
-                                    isLast
-                                />
-                            </div>
+                            {tradePlanAvailable ? <>
+                                <div className="mt-3">
+                                    <TradePlanRow
+                                        label="Entry"
+                                        title={`${formatPriceLabel(signal.entry)} retest confirmation`}
+                                        description={tradePlan.entryDesc}
+                                    />
+                                    <TradePlanRow
+                                        label="SL"
+                                        title={`${formatPriceLabel(signal.sl)} invalidation area`}
+                                        description={tradePlan.slDesc}
+                                    />
+                                    <TradePlanRow
+                                        label="TP"
+                                        title={`${formatPriceLabel(signal.tp1)} then ${formatPriceLabel(signal.tp2 || signal.tp)}`}
+                                        description={tradePlan.tpDesc}
+                                        isLast
+                                    />
+                                </div>
 
-                            <SignalDetailMiniProgress signal={signal} />
+                                <SignalDetailMiniProgress signal={signal} />
+                            </> : (
+                                <div className="mt-3">
+                                    <NoTradeSetup detail />
+                                </div>
+                            )}
                         </section>
 
                         {signal.poc && (
@@ -1494,7 +1508,9 @@ function SignalDetailSideout({ signal, onClose }) {
     );
 }
 
-function SignalCard({ signal, selectedSymbol, cooldownRemaining, error, isConservativeMode, onReanalyze, onDelete, onCheckDetail, onToggleMode }) {
+function SignalCard({ signal, selectedSymbol, cooldownRemaining, error, isConservativeMode, onReanalyze, onDelete, onCheckDetail, onToggleMode, onLocked }) {
+    const [locking, setLocking] = useState(false);
+    const [locked, setLocked] = useState(false);
     const styles = biasStyles(signal.bias);
     const isDex = signal.marketType === "DEX" || !signal.indicatorAvailable;
     const riskPercent = Number(signal.riskPercent || 0);
@@ -1503,6 +1519,7 @@ function SignalCard({ signal, selectedSymbol, cooldownRemaining, error, isConser
     const sinceEntry = Number(signal.sinceEntryPercent ?? signal.change ?? 0);
     const sinceEntryTone = sinceEntry >= 0 ? "text-[#a3e635]" : "text-[#f87171]";
     const showConservative = isConservativeMode && !isDex;
+    const tradePlanAvailable = hasActiveTradePlan(signal);
 
     return (
         <article className="group @container relative overflow-hidden rounded-lg bg-gradient-to-br from-[#374151] to-[#111827] p-3.5 shadow-[0_1px_2px_rgba(10,13,18,0.05)] sm:p-5 lg:p-6">
@@ -1553,7 +1570,9 @@ function SignalCard({ signal, selectedSymbol, cooldownRemaining, error, isConser
                             <p className="hidden max-w-[48ch] text-[#f8fafc] sm:block" style={FIGMA_TEXT.textSmMedium}>
                                 {isDex
                                     ? "DEX token hanya menampilkan price, liquidity, dan volume karena data indikator belum tersedia."
-                                    : `Current masih dekat entry. Risk ke SL ${riskPercent.toFixed(2)}%, reward ke TP2 ${rewardPercent.toFixed(2)}%.`}
+                                    : tradePlanAvailable
+                                        ? `Current masih dekat entry. Risk ke SL ${riskPercent.toFixed(2)}%, reward ke TP2 ${rewardPercent.toFixed(2)}%.`
+                                        : "Signal netral — belum ada entry, SL, maupun target yang valid."}
                             </p>
                         )}
                     </div>
@@ -1601,15 +1620,26 @@ function SignalCard({ signal, selectedSymbol, cooldownRemaining, error, isConser
                 )}
 
                 <div className="grid w-full grid-cols-3 gap-2 sm:gap-4">
-                    <form action={lockSignalAction} className="min-w-0 flex-1">
-                        <SignalHiddenInputs signal={signal} />
+                    <div className="min-w-0 flex-1">
                         <button
-                            type="submit"
-                            className="relative flex min-h-10 w-full items-center justify-center overflow-hidden rounded-md border-2 border-white/10 bg-[#B7FB5B] px-2 py-1.5 shadow-[0_1px_2px_rgba(10,13,18,0.05),inset_0_-2px_0_rgba(10,13,18,0.05),inset_0_0_0_1px_rgba(10,13,18,0.18)] transition hover:bg-[#a8ec4c] sm:min-h-11 sm:rounded-lg sm:px-3 sm:py-2"
+                            type="button"
+                            disabled={locking || locked || !tradePlanAvailable}
+                            onClick={async () => {
+                                setLocking(true);
+                                try {
+                                    const payload = await apiRequest("/signals/locked", { method: "POST", body: signal });
+                                    setLocked(true);
+                                    if (payload.signal) onLocked?.(payload.signal);
+                                } finally {
+                                    setLocking(false);
+                                }
+                            }}
+                            className="relative flex min-h-10 w-full items-center justify-center overflow-hidden rounded-md border-2 border-white/10 bg-[#B7FB5B] px-2 py-1.5 shadow-[0_1px_2px_rgba(10,13,18,0.05),inset_0_-2px_0_rgba(10,13,18,0.05),inset_0_0_0_1px_rgba(10,13,18,0.18)] transition hover:bg-[#a8ec4c] disabled:cursor-not-allowed disabled:opacity-45 sm:min-h-11 sm:rounded-lg sm:px-3 sm:py-2"
+                            title={!tradePlanAvailable ? "Signal netral belum memiliki level untuk di-lock" : undefined}
                         >
-                            <span className="truncate text-black" style={{ ...FIGMA_TEXT.textSmBoldWhite, color: "#000000", fontSize: "clamp(0.6875rem, 0.65rem + 0.2vw, 0.875rem)" }}>Lock Signal</span>
+                            <span className="truncate text-black" style={{ ...FIGMA_TEXT.textSmBoldWhite, color: "#000000", fontSize: "clamp(0.6875rem, 0.65rem + 0.2vw, 0.875rem)" }}>{locked ? "Locked" : locking ? "Locking…" : tradePlanAvailable ? "Lock Signal" : "No Setup"}</span>
                         </button>
-                    </form>
+                    </div>
                     <div className="min-w-0 flex-1">
                         <ReanalyzeButton
                             signal={signal}
@@ -1704,7 +1734,7 @@ function EmptySignalState({ searchKeyword, filterMode }) {
     );
 }
 
-export default function DashboardSignalBoard({ signals, searchKeyword = "", filterMode = "all", onSignalUpdate, onSignalDelete, onToast }) {
+export default function DashboardSignalBoard({ signals, searchKeyword = "", filterMode = "all", onSignalUpdate, onSignalDelete, onToast, onLocked }) {
     const [selectedSymbol, setSelectedSymbol] = useState("");
     const [detailSignal, setDetailSignal] = useState(null);
     const [errors, setErrors] = useState({});
@@ -1778,27 +1808,10 @@ export default function DashboardSignalBoard({ signals, searchKeyword = "", filt
         setErrors((current) => ({ ...current, [activeSymbol]: "" }));
 
         try {
-            const searchParams = new URLSearchParams({
-                symbol: activeSymbol,
-                timeframe: signal.timeframe || "15m",
-                action: "REANALYZE",
-            });
-            const response = await fetch(`/api/market-signal?${searchParams.toString()}`, {
+            const payload = await apiRequest(`/market/signals/${encodeURIComponent(activeSymbol)}`, {
                 cache: "no-store",
+                query: { timeframe: signal.timeframe || "15m", action: "REANALYZE" },
             });
-            const payload = await response.json();
-
-            if (!response.ok) {
-                if (response.status === 429 && payload.retryAfter) {
-                    const nextCooldownUntil = Date.now() + Number(payload.retryAfter) * 1000;
-                    setCooldownUntil((currentUntil) => Math.max(currentUntil, nextCooldownUntil));
-                    setNow(Date.now());
-                }
-
-                if (response.status === 429) return;
-
-                throw new Error(payload.error || "Re-analyze gagal.");
-            }
 
             onSignalUpdate(
                 { ...payload.signal, conservativeGate: payload.conservativeGate ?? null },
@@ -1806,6 +1819,10 @@ export default function DashboardSignalBoard({ signals, searchKeyword = "", filt
             );
             onToast?.("success", `${payload.signal.base} berhasil di-re-analyze.`);
         } catch (error) {
+            if (error?.status === 429) {
+                setCooldownUntil(Date.now() + 60_000);
+                setNow(Date.now());
+            }
             const message = error.message || "Re-analyze gagal.";
             setErrors((current) => ({
                 ...current,
@@ -1835,6 +1852,7 @@ export default function DashboardSignalBoard({ signals, searchKeyword = "", filt
                     onDelete={onSignalDelete}
                     onCheckDetail={setDetailSignal}
                     onToggleMode={toggleConservativeMode}
+                    onLocked={onLocked}
                 />
             ))}
 

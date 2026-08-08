@@ -1,6 +1,6 @@
 "use client";
 
-import { formatAbsPercent, formatPrice, LEVEL_LABEL } from "./format";
+import { formatAbsPercent, formatAlertState, formatPrice, formatRangeState, LEVEL_LABEL } from "./format";
 
 function WatchlistCardSkeleton() {
     return <div className="market-skeleton h-[116px] border-b border-white/10" />;
@@ -60,11 +60,11 @@ export default function MarketWatchlist({ symbols, entries, selectedSymbol, onSe
                                     {formatPrice(payload?.currentPrice)}
                                 </p>
                                 <span className="mt-2 inline-block border-l border-[#B7FB5B]/60 pl-2 text-[11px] font-medium text-gray-300">
-                                    {payload?.alertState || "—"}
+                                    {formatAlertState(payload?.alertState)}
                                 </span>
                                 <div className="mt-3 flex items-center justify-between gap-2 text-[10px] text-gray-500">
                                     <span>Terdekat: {nearestText(entry)}</span>
-                                    <span>{payload?.rangeState || ""}</span>
+                                    <span>{formatRangeState(payload?.rangeState)}</span>
                                 </div>
                             </>
                         )}
