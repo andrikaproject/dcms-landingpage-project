@@ -1,4 +1,6 @@
-const DEFAULT_API_BASE_URL = "https://dcms-api.my.id/v1";
+// Keep authentication first-party in Safari. The Next.js route handler proxies
+// this path to the API domain and rewrites the refresh-cookie path.
+const DEFAULT_API_BASE_URL = "/api/v1";
 
 export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, "");
 
@@ -114,7 +116,13 @@ export async function apiRequest<T = unknown>(path: string, options: ApiRequestO
         headers,
         ...requestInit
     } = options;
-    const url = new URL(`${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`);
+    const requestBaseUrl = API_BASE_URL.startsWith("/")
+        ? (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
+        : undefined;
+    const url = new URL(
+        `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`,
+        requestBaseUrl
+    );
     for (const [key, value] of Object.entries(query || {})) {
         if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
     }
