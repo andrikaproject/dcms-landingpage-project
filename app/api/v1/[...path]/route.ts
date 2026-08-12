@@ -11,6 +11,9 @@ async function proxy(request: Request, { params }: RouteContext) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.delete("host");
     requestHeaders.delete("content-length");
+    // This is a server-to-server hop. Do not forward the browser Origin, or
+    // the API will treat local development as an untrusted CORS client.
+    requestHeaders.delete("origin");
     requestHeaders.set("x-forwarded-host", requestUrl.host);
 
     const init: RequestInit & { duplex?: "half" } = {
