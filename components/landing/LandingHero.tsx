@@ -342,7 +342,7 @@ export function LandingHero({
             ) : (
               <>
                 <Link
-                  href="https://discord.gg/dcms"
+                  href="https://discord.gg/n58Hfr3EV6"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="dcms-cta-pulse"
