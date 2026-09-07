@@ -49,6 +49,7 @@ export default function AdminUsersPage() {
                             <p className="text-sm text-zinc-500">Review dan kelola status member DCMS.</p>
                         </div>
                         <div className="flex flex-wrap gap-2">
+                            <Link href="/dashboard/admin/monitoring" className="rounded-md border border-red-400/25 bg-red-400/10 px-3 py-2 text-xs font-bold text-red-300">Monitoring &amp; Logs →</Link>
                             <Link href="/dashboard/admin/api-docs" className="rounded-md border border-sky-400/25 bg-sky-400/10 px-3 py-2 text-xs font-bold text-sky-300">API Documentation →</Link>
                             <Link href="/dashboard/admin/adaptive-gate" className="rounded-md border border-[#B7FB5B]/25 bg-[#B7FB5B]/10 px-3 py-2 text-xs font-bold text-[#B7FB5B]">Adaptive Gate Observability →</Link>
                         </div>

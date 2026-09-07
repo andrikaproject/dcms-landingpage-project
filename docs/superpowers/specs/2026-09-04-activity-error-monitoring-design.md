@@ -171,7 +171,7 @@ Semua aturan berada di satu file `src/modules/logs/impact-rules.js` berisi fungs
 
 SHA-1 hex dari string gabungan:
 
-- **FRONTEND:** `type | normalizedMessage | firstFrame`. `normalizedMessage` = pesan huruf kecil, deretan digit diganti `N`, deretan heksadesimal ≥ 8 karakter diganti `X`, dipotong 200 karakter. `firstFrame` = baris stack pertama yang memuat ` at ` atau `@`, dengan angka baris dan kolom (`:\d+:\d+`) dibuang; bila stack kosong, dipakai `path` halaman. Khusus CLIENT_NETWORK_ERROR yang tidak punya stack, `firstFrame` = `method` dan `path` API dari detail, agar kegagalan ke endpoint yang sama terkelompok.
+- **FRONTEND:** `type | normalizedMessage | firstFrame`. `normalizedMessage` = pesan huruf kecil, deretan digit diganti `N`, deretan heksadesimal ≥ 8 karakter diganti `X`, dipotong 200 karakter. `firstFrame` = baris stack pertama yang memuat ` at ` atau `@`, dengan angka baris dan kolom (`:\d+:\d+`) dibuang; bila stack kosong, dipakai `path` halaman. **CLIENT_NETWORK_ERROR memakai aturan terpisah:** kuncinya hanya `type | method path` dari detail, tanpa pesan sama sekali, karena browser berbeda melaporkan kegagalan jaringan yang sama dengan kalimat berbeda sehingga satu endpoint yang mati akan terpecah menjadi banyak masalah.
 - **BACKEND:** `method | routePattern | errorCode | statusCode`, ditambah `firstFrame` bila status ≥ 500. `routePattern` = `req.route?.path` bila ada, bila tidak `req.path` dengan segmen yang seluruhnya digit atau UUID diganti `:id`.
 
 ### 8.2 Keparahan dasar (`severity`, dihitung saat tulis)
@@ -199,7 +199,7 @@ Dampak tidak pernah lebih rendah dari keparahan dasar. Urutan tampil: HIGH, MEDI
 - `src/modules/logs/log.service.js`: satu-satunya pintu ke tabel. Ekspor `recordLog`, `listDays`, `listLogs`, `listIssues`, `exportLogs`, `deleteDay`, serta helper `redactDetails`, `truncate`, `toCsvRow`. Fungsi menerima dependensi opsional (`insert`, `select`, `now`, `logger`) seperti `password-reset.service.js`, sehingga bisa diuji tanpa database.
 - `src/modules/logs/activity.js`: `logActivity(req, type, details, { target })` yang membangun entri dari `req.user`, `req.id`, `req.ip`, menerapkan peredam untuk tipe VIEW, lalu memanggil `recordLog`.
 - `src/modules/logs/impact-rules.js`: `computeFingerprint`, `computeSeverity`, `computeImpact`, `EXCLUDED_ERROR_CODES`, dan konstanta ambang.
-- `src/middleware/optional-auth.js`: bila header Bearer ada dan valid, isi `req.user`; bila tidak ada atau tidak valid, lanjut tanpa error.
+- `src/middleware/optional-auth.js`: bila header Bearer ada dan valid, isi `req.user`; bila tidak ada atau tidak valid, lanjut tanpa error. Dipakai oleh endpoint ingest dan `POST /auth/logout`, agar logout tercatat dengan identitas user bila frontend mengirim Bearer.
 - `src/routes/logs.routes.js`: endpoint ingest.
 - `drizzle/0002_app_logs.sql`.
 
@@ -288,7 +288,7 @@ Mencatat aktivitas ADMIN_LOGS_EXPORT sebelum stream dimulai.
 
 ### 10.1 Penangkap error di browser
 
-**`lib/monitoring/client-error-reporter.ts`** — modul murni tanpa React. Ekspor `createReporter({ endpoint, getToken, fetchImpl, now })` yang mengembalikan `{ report(entry, options), installGlobalListeners(target) }`, ditambah `isReporterEnabled()` dan `buildPage(location)`.
+**`lib/monitoring/client-error-reporter.js`** — modul murni tanpa React, ditulis JavaScript karena `npm test` memakai `node --test` tanpa loader TypeScript. Ekspor `createReporter({ endpoint, getToken, fetchImpl, now })` yang mengembalikan `{ report(entry, options), installGlobalListeners(target) }`, ditambah `isReporterEnabled()` dan `buildPage(location)`.
 
 - `report` menerima `{ type, message, stack?, digest?, path?, method?, requestId?, durationMs?, retried?, details? }`, mengisi `page` dari `location.pathname` (tanpa query dan hash), memotong `stack` ke 8.000 karakter, lalu mengirim lewat `fetch` biasa dengan `keepalive: true`, `credentials: "include"`, dan header `Authorization: Bearer` bila `getToken()` mengembalikan token.
 - **Tidak memakai `apiRequest`**, karena kegagalannya akan memancarkan `dcms:api-request` lagi dan berputar.

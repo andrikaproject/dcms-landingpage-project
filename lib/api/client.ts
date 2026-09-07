@@ -106,16 +106,7 @@ export type ApiRequestOptions = Omit<RequestInit, "body"> & {
     query?: Record<string, string | number | boolean | null | undefined>;
 };
 
-export async function apiRequest<T = unknown>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-    const {
-        auth = true,
-        retryAuth = true,
-        requestId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `dcms-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        query,
-        body,
-        headers,
-        ...requestInit
-    } = options;
+function buildUrl(path: string, query?: ApiRequestOptions["query"]) {
     const requestBaseUrl = API_BASE_URL.startsWith("/")
         ? (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
         : undefined;
@@ -126,6 +117,21 @@ export async function apiRequest<T = unknown>(path: string, options: ApiRequestO
     for (const [key, value] of Object.entries(query || {})) {
         if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
     }
+
+    return url;
+}
+
+export async function apiRequest<T = unknown>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+    const {
+        auth = true,
+        retryAuth = true,
+        requestId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `dcms-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        query,
+        body,
+        headers,
+        ...requestInit
+    } = options;
+    const url = buildUrl(path, query);
 
     const requestHeaders = new Headers(headers);
     requestHeaders.set("Accept", "application/json");
@@ -159,6 +165,35 @@ export async function apiRequest<T = unknown>(path: string, options: ApiRequestO
     }
 }
 
+export async function apiDownload(path: string, options: { query?: ApiRequestOptions["query"]; retryAuth?: boolean } = {}): Promise<{ blob: Blob; filename: string }> {
+    const url = buildUrl(path, options.query);
+    const requestId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `dcms-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    async function download(retryAuth: boolean): Promise<{ blob: Blob; filename: string }> {
+        const headers = new Headers({ Accept: "*/*", "X-Request-ID": requestId });
+        if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+        const startedAt = performance.now();
+        try {
+            const response = await fetch(url, { method: "GET", headers, credentials: "include" });
+            if (response.status === 401 && retryAuth) {
+                const refreshed = await refreshSession();
+                if (refreshed) return download(false);
+            }
+            if (!response.ok) await parseResponse(response);
+            const blob = await response.blob();
+            const filename = response.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/i)?.[1] || "download";
+            emitTelemetry({ requestId, path: url.pathname, method: "GET", status: response.status, durationMs: Math.round(performance.now() - startedAt), retried: !retryAuth });
+            return { blob, filename };
+        } catch (error) {
+            emitTelemetry({ requestId, path: url.pathname, method: "GET", status: error instanceof ApiError ? error.status : 0, code: error instanceof ApiError ? error.code : "NETWORK_ERROR", durationMs: Math.round(performance.now() - startedAt), retried: !retryAuth });
+            if (error instanceof ApiError) throw error;
+            throw new ApiError(error instanceof Error ? error.message : "Tidak dapat terhubung ke API.", { status: 0, code: "NETWORK_ERROR" });
+        }
+    }
+
+    return download(options.retryAuth !== false);
+}
+
 export async function login(identifier: string, password: string) {
     const data = await apiRequest<{ accessToken: string; user: ApiUser }>("/auth/login", {
         method: "POST",
@@ -177,7 +212,7 @@ export async function bootstrapSession() {
 
 export async function logout() {
     try {
-        await apiRequest("/auth/logout", { method: "POST", auth: false, retryAuth: false });
+        await apiRequest("/auth/logout", { method: "POST", auth: true, retryAuth: false });
     } finally {
         accessToken = null;
         publishAuth(null);

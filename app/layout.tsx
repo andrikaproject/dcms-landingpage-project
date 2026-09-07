@@ -28,6 +28,7 @@ export const metadata: Metadata = {
 };
 
 import { Cursor } from "@/components/Cursor";
+import { ClientErrorReporter } from "@/components/ClientErrorReporter";
 import { WebVitals } from "@/components/WebVitals";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 
@@ -44,6 +45,7 @@ export default function RootLayout({
         <AuthProvider>
           <Cursor />
           <WebVitals />
+          <ClientErrorReporter />
           {children}
         </AuthProvider>
       </body>
