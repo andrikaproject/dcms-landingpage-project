@@ -6,6 +6,53 @@
 
 **Repositories:** `dcms-landingpage-project` and `dcms-api`
 
+## Repository Ownership
+
+This optimization spans two existing projects. Every implementation task, command, test, and commit must use the correct project root below.
+
+### Backend API
+
+**Project root:** `/Users/andrika/Documents/ProjectDCMS/dcms-api`
+
+All server-side market fetching, shared caching, request budgeting, response metadata, locked-signal refresh behavior, API documentation, and backend tests belong exclusively in this project.
+
+Expected backend touchpoints:
+
+- `/Users/andrika/Documents/ProjectDCMS/dcms-api/src/modules/market/provider.js`
+- `/Users/andrika/Documents/ProjectDCMS/dcms-api/src/modules/market/live-prices.service.js`
+- `/Users/andrika/Documents/ProjectDCMS/dcms-api/src/modules/market/signal.service.js`
+- `/Users/andrika/Documents/ProjectDCMS/dcms-api/src/modules/market/market.service.js`
+- `/Users/andrika/Documents/ProjectDCMS/dcms-api/src/modules/signals/locked-signals.service.js`
+- `/Users/andrika/Documents/ProjectDCMS/dcms-api/src/routes/market.routes.js`
+- `/Users/andrika/Documents/ProjectDCMS/dcms-api/src/docs/operations.js`
+- `/Users/andrika/Documents/ProjectDCMS/dcms-api/tests/live-prices.test.js`
+- `/Users/andrika/Documents/ProjectDCMS/dcms-api/tests/locked-signals.test.js`
+- `/Users/andrika/Documents/ProjectDCMS/dcms-api/tests/http.test.js`
+
+New cache or timing modules and their tests, if needed, must also be created under this backend root.
+
+### Frontend Dashboard
+
+**Project root:** `/Users/andrika/Documents/ProjectDCMS/dcms-landingpage-project`
+
+Only browser request orchestration, independent loading states, timeframe interaction, stale or error presentation, and visual verification belong in this project.
+
+Expected frontend touchpoints:
+
+- `/Users/andrika/Documents/ProjectDCMS/dcms-landingpage-project/app/dashboard/page.jsx`
+- `/Users/andrika/Documents/ProjectDCMS/dcms-landingpage-project/app/dashboard/DashboardSignalWorkspace.jsx`
+- `/Users/andrika/Documents/ProjectDCMS/dcms-landingpage-project/app/dashboard/DashboardSignalBoard.jsx`
+- `/Users/andrika/Documents/ProjectDCMS/dcms-landingpage-project/lib/api/client.ts`
+- `/Users/andrika/Documents/ProjectDCMS/dcms-landingpage-project/tests/unit/`
+
+### Single-execution rule
+
+- Backend business logic must not be copied into the frontend repository.
+- Frontend code must consume the existing `dcms-api` endpoints rather than implementing a second market-data pipeline.
+- Backend tests and commands run once from the `dcms-api` root.
+- Frontend tests and commands run once from the `dcms-landingpage-project` root.
+- Performance measurements identify which root and server instance produced the result, preventing the same service from being started or benchmarked twice.
+
 ## 1. Summary
 
 This design reduces dashboard latency during timeframe changes without changing the existing Signal Board or Locked Signal card design. The solution separates unrelated frontend requests, reduces Bitunix request fan-out, shares public market caches across users, and keeps previously loaded data visible while new data is fetched.
