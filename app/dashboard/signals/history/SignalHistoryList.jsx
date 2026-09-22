@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { apiRequest } from "@/lib/api/client";
+import SignalEventTimeline from "../pending/SignalEventTimeline";
+import { SIGNAL_FLAGS } from "@/lib/signals/flags";
+import { STATUS_FILTER_OPTIONS, describeStatus, isKnownStatus, isTradeOutcomeStatus } from "@/lib/signals/lifecycle";
+import { finalTakeProfit, hasPartialTakeProfit, normalizeSignalPlan } from "@/lib/signals/plan";
+import { formatDecimalPrice, formatRealizedR, formatRewardRisk, formatUserTime } from "@/lib/signals/format";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -25,6 +30,7 @@ const LOCKED_STATUS_CONFIG = {
     ACTIVE: { label: "Aktif", className: "border-sky-400/20 bg-sky-500/10 text-sky-300" },
     HIT_TP: { label: "TP2 tercapai", className: "border-[#B7FB5B]/20 bg-[#B7FB5B]/10 text-[#B7FB5B]" },
     HIT_SL: { label: "SL tersentuh", className: "border-red-400/20 bg-red-500/10 text-red-300" },
+    CLOSED: { label: "Selesai", className: "border-zinc-600/40 bg-zinc-700/20 text-zinc-400" },
 };
 
 const LOCKED_HIT_LABEL = {
@@ -37,6 +43,7 @@ const LOCKED_STATUS_OPTIONS = [
     { value: "ACTIVE", label: "Aktif" },
     { value: "HIT_TP", label: "TP2 tercapai" },
     { value: "HIT_SL", label: "SL tersentuh" },
+    { value: "CLOSED", label: "Selesai lainnya" },
 ];
 
 const GATE_CONFIG = {
@@ -241,6 +248,9 @@ function HistoryCard({ item }) {
                 <span className="font-chakra text-xs text-zinc-500">{item.source}</span>
                 <span className="ml-auto flex items-center gap-2">
                     {item.outcomeStatus === "OPEN" && <LockButton item={item} />}
+                    <span className="rounded-full border border-zinc-700/60 bg-black/10 px-2 py-0.5 font-chakra text-[10px] text-zinc-500" title="Histori sebelum lifecycle pending signal">
+                        Legacy
+                    </span>
                     <span className="font-chakra text-[10px] text-zinc-600">{actionLabel} · {relativeTime(item.seenAt)}</span>
                 </span>
             </div>
@@ -278,8 +288,100 @@ function HistoryCard({ item }) {
     );
 }
 
+// Item lifecycle baru punya rencana immutable dan hasil evaluasi terpisah.
+function PlanHistoryCard({ item }) {
+    const [showEvents, setShowEvents] = useState(false);
+    const plan = normalizeSignalPlan(item);
+    const status = describeStatus(plan.status);
+    const priceOptions = { tickSize: plan.tickSize, precision: plan.pricePrecision };
+    const finalTp = finalTakeProfit(plan);
+    const quote = plan.source === "DEXSCREENER" ? "USD" : "USDT";
+    const entryLabel = plan.entry.isZone
+        ? `${formatDecimalPrice(plan.entry.zoneLow, priceOptions)} – ${formatDecimalPrice(plan.entry.zoneHigh, priceOptions)}`
+        : formatDecimalPrice(plan.entry.price, priceOptions);
+
+    return (
+        <article className="rounded-lg border border-white/[0.06] bg-[#1a1d24] p-4">
+            <div className="flex flex-wrap items-center gap-2">
+                <span className={`rounded-md px-2 py-0.5 font-chakra text-[10px] font-bold uppercase ${biasBadgeClass((plan.side || "").toLowerCase())}`}>
+                    {plan.side || "TANPA ARAH"}
+                </span>
+                <span className="font-chakra text-sm font-bold text-white">{plan.base}/{quote}</span>
+                <span className="font-chakra text-xs text-zinc-500">{plan.timeframe?.toUpperCase()}</span>
+                <span className="font-chakra text-xs text-zinc-600">·</span>
+                <span className="font-chakra text-xs text-zinc-500">{plan.source}</span>
+                <span className={`ml-auto inline-flex items-center rounded-full border px-2.5 py-0.5 font-chakra text-[11px] font-bold ${status.className}`}>
+                    {status.label}
+                </span>
+            </div>
+
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-chakra text-xs text-zinc-400">
+                <span>{plan.entry.isZone ? "Zona" : "Entry"} <span className="text-white">{entryLabel}</span></span>
+                <span>SL <span className="text-red-300">{formatDecimalPrice(plan.stopLoss, priceOptions)}</span></span>
+                <span>Target final <span className="text-[#B7FB5B]">{formatDecimalPrice(finalTp?.price, priceOptions)}</span></span>
+                <span>RR rencana <span className="text-zinc-300">{formatRewardRisk(plan.grossRewardRisk)}</span></span>
+            </div>
+
+            {hasPartialTakeProfit(plan) && (
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-chakra text-[11px] text-zinc-500">
+                    {plan.takeProfits.map((takeProfit) => (
+                        <span key={takeProfit.label}>
+                            {takeProfit.label} {formatDecimalPrice(takeProfit.price, priceOptions)}
+                            {takeProfit.weight === null ? "" : ` · keluar ${(takeProfit.weight * 100).toFixed(0)}%`}
+                        </span>
+                    ))}
+                </div>
+            )}
+
+            {/* Hasil simulasi memakai R terealisasi setelah biaya, bukan RR rencana. */}
+            {plan.outcome ? (
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-chakra text-[11px] text-zinc-400">
+                    <span>Alasan <span className="text-zinc-300">{plan.outcome.reason || "-"}</span></span>
+                    <span>Keluar <span className="text-zinc-300">{formatDecimalPrice(plan.outcome.exitPrice, priceOptions)}</span></span>
+                    <span>Gross <span className="text-zinc-300">{formatRealizedR(plan.outcome.grossRealizedR)}</span></span>
+                    <span>Net <span className="text-zinc-300">{formatRealizedR(plan.outcome.netRealizedR)}</span></span>
+                    {!isTradeOutcomeStatus(plan.status) && <span className="text-zinc-600">Tidak dihitung sebagai trade</span>}
+                </div>
+            ) : (
+                <p className="mt-3 font-chakra text-[11px] text-zinc-600">Belum ada hasil evaluasi tercatat.</p>
+            )}
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+                {plan.revisionOf && (
+                    <span className="inline-flex items-center rounded-full border border-zinc-700 bg-black/10 px-2.5 py-0.5 font-chakra text-[11px] text-zinc-400">
+                        Revisi dari {plan.revisionOf}
+                    </span>
+                )}
+                {plan.provenance.modelVersion && (
+                    <span className="inline-flex items-center rounded-full border border-zinc-700 bg-black/10 px-2.5 py-0.5 font-chakra text-[11px] text-zinc-400">
+                        Model {plan.provenance.modelVersion}
+                    </span>
+                )}
+                <span className="ml-auto font-chakra text-[10px] text-zinc-600">
+                    {plan.publishedAt ? `Terbit ${formatUserTime(plan.publishedAt)}` : ""}
+                    {plan.resolvedAt ? ` · Selesai ${formatUserTime(plan.resolvedAt)}` : ""}
+                </span>
+                <button
+                    type="button"
+                    onClick={() => setShowEvents((current) => !current)}
+                    aria-expanded={showEvents}
+                    className="rounded-md border border-zinc-700 bg-black/20 px-2.5 py-1 font-chakra text-[10px] font-bold text-zinc-400 transition hover:text-white"
+                >
+                    {showEvents ? "Tutup peristiwa" : "Lihat peristiwa"}
+                </button>
+            </div>
+
+            {showEvents && (
+                <div className="mt-3 rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                    <SignalEventTimeline signalId={plan.signalId} />
+                </div>
+            )}
+        </article>
+    );
+}
+
 function LockedCard({ item }) {
-    const statusCfg = LOCKED_STATUS_CONFIG[item.status];
+    const statusCfg = item.lifecycleStatus ? describeStatus(item.lifecycleStatus) : LOCKED_STATUS_CONFIG[item.status];
     const hitMeta = LOCKED_HIT_LABEL[item.status];
     const hitTime = hitMeta && item.hitAt ? absoluteTime(item.hitAt) : null;
     const hitDuration = hitMeta && item.hitAt ? formatDuration(item.createdAt, item.hitAt) : null;
@@ -344,6 +446,7 @@ export default function SignalHistoryList() {
     const [timeframe, setTimeframe] = useState("");
     const [outcomeStatus, setOutcomeStatus] = useState("");
     const [actionType, setActionType] = useState("");
+    const [lifecycleStatus, setLifecycleStatus] = useState("");
     const [page, setPage] = useState(1);
     const [data, setData] = useState({ items: [], hasMore: false });
     const [isLoading, setIsLoading] = useState(true);
@@ -379,6 +482,7 @@ export default function SignalHistoryList() {
         setTimeframe("");
         setOutcomeStatus("");
         setActionType("");
+        setLifecycleStatus("");
         setPage(1);
     }
 
@@ -396,6 +500,7 @@ export default function SignalHistoryList() {
         if (timeframe) params.set("timeframe", timeframe);
         if (outcomeStatus) params.set("outcomeStatus", outcomeStatus);
         if (actionType) params.set("actionType", actionType);
+        if (lifecycleStatus) params.set("status", lifecycleStatus);
 
         apiRequest("/signals/history", { cache: "no-store", query: Object.fromEntries(params.entries()) })
             .then((json) => { if (!cancelled) setData(json); })
@@ -403,7 +508,7 @@ export default function SignalHistoryList() {
             .finally(() => { if (!cancelled) setIsLoading(false); });
 
         return () => { cancelled = true; };
-    }, [symbol, timeframe, outcomeStatus, actionType, page]);
+    }, [symbol, timeframe, outcomeStatus, actionType, lifecycleStatus, page]);
 
     useEffect(() => {
         if (activeTab !== "locked") return;
@@ -426,7 +531,7 @@ export default function SignalHistoryList() {
         return () => { cancelled = true; };
     }, [activeTab, lockedStatus, lockedPage]);
 
-    const hasActiveFilter = Boolean(symbol || timeframe || outcomeStatus || actionType);
+    const hasActiveFilter = Boolean(symbol || timeframe || outcomeStatus || actionType || lifecycleStatus);
 
     return (
         <div className="mx-auto w-full max-w-[900px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
@@ -502,6 +607,11 @@ export default function SignalHistoryList() {
                             <select value={actionType} onChange={(e) => setFilterAndReset(setActionType, e.target.value)} className="min-h-9 rounded-md border border-zinc-700 bg-[#1a1d24] px-3 font-chakra text-xs text-zinc-300 outline-none focus:border-[#B7FB5B]/50">
                                 {ACTION_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                             </select>
+                            {SIGNAL_FLAGS.pendingSignals && (
+                                <select value={lifecycleStatus} onChange={(e) => setFilterAndReset(setLifecycleStatus, e.target.value)} className="min-h-9 rounded-md border border-zinc-700 bg-[#1a1d24] px-3 font-chakra text-xs text-zinc-300 outline-none focus:border-[#B7FB5B]/50">
+                                    {STATUS_FILTER_OPTIONS.map((opt) => <option key={opt.value || "all"} value={opt.value}>{opt.label}</option>)}
+                                </select>
+                            )}
                         </div>
                     </div>
 
@@ -526,7 +636,11 @@ export default function SignalHistoryList() {
                         ) : (
                             <>
                                 <div className="space-y-3">
-                                    {data.items.map((item) => <HistoryCard key={item.exposureId} item={item} />)}
+                                    {data.items.map((item) => (
+                                        isKnownStatus(item.status)
+                                            ? <PlanHistoryCard key={item.signalId || item.exposureId} item={item} />
+                                            : <HistoryCard key={item.exposureId} item={item} />
+                                    ))}
                                 </div>
                                 <div className="mt-6 flex items-center justify-between gap-4">
                                     <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="min-h-9 rounded-md border border-zinc-700 bg-black/10 px-4 font-chakra text-sm text-zinc-400 transition hover:border-zinc-600 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40">← Sebelumnya</button>

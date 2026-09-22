@@ -50,6 +50,7 @@ export default function AdaptiveGateObservabilityPage() {
                         <Link href="/dashboard/admin/users" className="text-sm text-blue-400 hover:underline">← Kembali ke Management User</Link>
                         <h1 className="mt-3 font-nebulica text-3xl font-bold">Adaptive Gate Observability</h1>
                         <p className="mt-1 text-sm text-zinc-500">Audit kesehatan learning system dan performa gate.</p>
+                        <Link href="/dashboard/admin/ml" className="mt-2 inline-block text-sm text-blue-400 hover:underline">ML dan Pending Signal →</Link>
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <select value={filters.timeframe} onChange={(event) => setFilters((current) => ({ ...current, timeframe: event.target.value }))} className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs">
