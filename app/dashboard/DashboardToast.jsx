@@ -32,14 +32,19 @@ function DashboardToastItem({ toast, onDismiss }) {
     const dragOffsetRef = useRef(0);
     const [dragOffset, setDragOffset] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
+    // Toast yang membawa aksi (mis. Undo) atau pesan gagal bertahan sampai
+    // ditutup; hanya konfirmasi biasa yang hilang sendiri.
+    const autoDismiss = toast.type !== "error" && !toast.action;
 
     useEffect(() => {
+        if (!autoDismiss) return undefined;
+
         const timer = window.setTimeout(() => {
             onDismiss(toast.id);
         }, TOAST_AUTO_DISMISS_MS);
 
         return () => window.clearTimeout(timer);
-    }, [onDismiss, toast.id]);
+    }, [autoDismiss, onDismiss, toast.id]);
 
     function handleAction() {
         toast.action?.onClick?.();
@@ -85,7 +90,6 @@ function DashboardToastItem({ toast, onDismiss }) {
 
     return (
         <div
-            role="status"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -102,7 +106,7 @@ function DashboardToastItem({ toast, onDismiss }) {
                     type="button"
                     onClick={handleAction}
                     onPointerDown={(event) => event.stopPropagation()}
-                    className="shrink-0 rounded-lg border border-current/25 px-3 py-1 text-xs font-bold transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-current/40"
+                    className="shrink-0 rounded-lg border border-current/25 px-3 py-1 text-xs font-bold transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
                 >
                     {toast.action.label}
                 </button>
@@ -111,31 +115,44 @@ function DashboardToastItem({ toast, onDismiss }) {
                 type="button"
                 onClick={() => onDismiss(toast.id)}
                 onPointerDown={(event) => event.stopPropagation()}
-                className="grid size-7 shrink-0 place-items-center rounded-lg border border-current/20 text-current/80 transition hover:bg-white/10 hover:text-current focus:outline-none focus:ring-2 focus:ring-current/40"
+                className="grid size-7 shrink-0 place-items-center rounded-lg border border-current/20 text-current/80 transition hover:bg-white/10 hover:text-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
                 aria-label="Tutup notifikasi"
             >
                 <CloseIcon />
             </button>
-            <span
-                className="absolute bottom-0 left-0 h-1 w-full origin-left bg-current/70 motion-safe:animate-[toast-progress_10s_linear_forwards]"
-                aria-hidden="true"
-            />
+            {autoDismiss && (
+                <span
+                    className="absolute bottom-0 left-0 h-1 w-full origin-left bg-current/70 motion-safe:animate-[toast-progress_10s_linear_forwards]"
+                    aria-hidden="true"
+                />
+            )}
         </div>
     );
 }
 
 export default function DashboardToast({ toasts, onDismiss }) {
-    if (toasts.length === 0) return null;
+    // Dua region ini selalu ada di DOM supaya pembaruan yang berulang tetap
+    // dibacakan screen reader: polite untuk konfirmasi, alert untuk kegagalan.
+    const latest = toasts[toasts.length - 1];
+    const politeMessage = latest && latest.type !== "error" ? latest.message : "";
+    const alertMessage = latest && latest.type === "error" ? latest.message : "";
 
     return (
-        <div className="fixed right-4 top-4 z-[100] flex w-[min(420px,calc(100vw-2rem))] flex-col gap-3">
-            {toasts.map((toast) => (
-                <DashboardToastItem
-                    key={toast.id}
-                    toast={toast}
-                    onDismiss={onDismiss}
-                />
-            ))}
-        </div>
+        <>
+            <div role="status" aria-live="polite" className="sr-only">{politeMessage}</div>
+            <div role="alert" className="sr-only">{alertMessage}</div>
+
+            {toasts.length > 0 && (
+                <div className="fixed right-4 top-4 z-[100] flex w-[min(420px,calc(100vw-2rem))] flex-col gap-3">
+                    {toasts.map((toast) => (
+                        <DashboardToastItem
+                            key={toast.id}
+                            toast={toast}
+                            onDismiss={onDismiss}
+                        />
+                    ))}
+                </div>
+            )}
+        </>
     );
 }

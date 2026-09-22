@@ -1,12 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import DashboardShell from "@/components/DashboardShell";
 import DashboardSignalWorkspace from "./DashboardSignalWorkspace";
 import { buildPartialTpPlan } from "@/lib/market/partial-tp";
 import { apiRequest } from "@/lib/api/client";
+import { useAdminSummary, useLockedSignals, useMarketDashboard } from "@/lib/market/dashboard";
+import { describeDataHealth, describePendingTimeframe, formatTimeframeLabel } from "@/lib/market/dashboard-core";
+import { describeStatus } from "@/lib/signals/lifecycle";
+import { describeLockedMovement, resolveLockedLifecycleStatus } from "@/lib/signals/locked";
 import { useAuth } from "@/components/auth/AuthProvider";
 
 const FONT_NEBULICA = "Nebulica, sans-serif";
@@ -83,6 +87,17 @@ function formatUsd(value, digits = 2) {
     return `$${number.toFixed(6)}`;
 }
 
+function formatSignedPercent(value) {
+    const number = Number(value || 0);
+    return `${number > 0 ? "+" : ""}${number.toFixed(2)}%`;
+}
+
+function getSignalChange(signals, symbol) {
+    const signal = signals.find((item) => item.symbol === symbol);
+    const change = Number(signal?.change);
+    return Number.isFinite(change) ? change : null;
+}
+
 function biasStyles(bias) {
     if (bias === "long") {
         return {
@@ -105,18 +120,6 @@ function biasStyles(bias) {
         metric: "text-[#38bdf8]",
         label: "NEUTRAL",
     };
-}
-
-function formatSignedPercent(value) {
-    const number = Number(value || 0);
-    const sign = number > 0 ? "+" : "";
-    return `${sign}${number.toFixed(2)}%`;
-}
-
-function getSignalChange(signals, symbol) {
-    const signal = signals.find((item) => item.symbol === symbol);
-    const change = Number(signal?.change);
-    return Number.isFinite(change) ? change : null;
 }
 
 function formatPriceLabel(value) {
@@ -184,10 +187,11 @@ function SignalProgress({ signal }) {
     const entryPercent = getRangePercent(signal.entry, min, max);
     const fillLeft = Math.min(entryPercent, currentPercent);
     const fillWidth = Math.max(2, Math.abs(currentPercent - entryPercent));
+    const isWaitingEntry = signal.lifecycleStatus === "PENDING_ENTRY";
     const isProfit = signal.bias === "short"
         ? Number(signal.price) <= Number(signal.entry)
         : Number(signal.price) >= Number(signal.entry);
-    const fillColor = isProfit ? "#8aef5a" : "#f87171";
+    const fillColor = isWaitingEntry ? "#38bdf8" : isProfit ? "#8aef5a" : "#f87171";
     const labelAlign = (percent) => {
         if (percent <= 8) return "left";
         if (percent >= 92) return "right";
@@ -198,7 +202,10 @@ function SignalProgress({ signal }) {
         <div className="relative h-[112px] sm:h-[62px]">
             <div
                 className="group relative h-5 w-full"
-                aria-label={`${signal.base} progress from stop loss to targets. Current price ${formatPriceLabel(signal.price)}.`}
+                role="img"
+                aria-label={isWaitingEntry
+                    ? `${signal.base} masih menunggu entry. Harga saat ini ${formatPriceLabel(signal.price)}.`
+                    : `${signal.base} progress from stop loss to targets. Current price ${formatPriceLabel(signal.price)}.`}
             >
                 <div className="absolute left-0 right-0 top-1/2 h-2.5 -translate-y-1/2 rounded-[5px] bg-[#334155]" />
                 <div
@@ -256,30 +263,47 @@ function SignalProgress({ signal }) {
     );
 }
 
-function LockedSignalList({ lockedSignals, onRefresh, onDeleted, refreshing }) {
+function LockedSignalList({ lockedSignals, onRefresh, onRetry, onDeleted, refreshing, loading, error }) {
     return (
         <section id="lock-signal-list" className="mt-6 scroll-mt-28 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 sm:p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-600">Lock Signal</p>
-                    <h2 className="mt-1 font-nebulica text-[clamp(1.25rem,1.1rem+0.75vw,1.5rem)] font-bold text-white">Active Locked Signals</h2>
+                    <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-400">Lock Signal</p>
+                    <h2 className="mt-1 font-nebulica text-[clamp(1.25rem,1.1rem+0.75vw,1.5rem)] font-bold text-white">Rencana yang diikuti</h2>
                 </div>
                 <div className="flex items-center gap-3">
-                    <p className="font-chakra text-xs text-zinc-500">Auto refresh setiap 5 menit.</p>
+                    <p className="font-chakra text-xs text-zinc-400">Auto refresh setiap 5 menit.</p>
                     <button
                         type="button"
                         onClick={onRefresh}
                         disabled={refreshing}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-zinc-600 px-3 py-1.5 font-chakra text-[11px] font-bold text-zinc-400 transition hover:border-[#B7FB5B]/40 hover:text-[#B7FB5B] disabled:cursor-wait disabled:opacity-50"
+                        className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-zinc-600 px-3 py-1.5 font-chakra text-[11px] font-bold text-zinc-400 transition hover:border-[#B7FB5B]/40 hover:text-[#B7FB5B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B7FB5B] disabled:cursor-wait disabled:opacity-50"
                     >
-                        {refreshing ? "Memperbarui…" : "Refresh Harga"}
+                        {refreshing ? "Memperbarui…" : "Refresh harga"}
                     </button>
                 </div>
             </div>
 
-            {lockedSignals.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-zinc-800 bg-black/20 p-5 font-chakra text-sm text-zinc-500">
-                    Belum ada sinyal yang di-lock. Klik tombol Lock Signal pada card sinyal untuk mulai tracking progress.
+            {/* Lock signal punya keadaan memuat dan gagalnya sendiri; data market
+                tetap tampil apa pun hasilnya di sini. */}
+            {loading && lockedSignals.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-zinc-800 bg-black/20 p-5 font-chakra text-sm text-zinc-400">
+                    Memuat lock signal…
+                </div>
+            ) : error && lockedSignals.length === 0 ? (
+                <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-5 font-chakra text-sm text-red-200">
+                    <span>{error}</span>
+                    <button
+                        type="button"
+                        onClick={onRetry}
+                        className="min-h-11 rounded-md border border-red-400/40 px-3 font-bold text-red-100 underline transition hover:bg-red-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-300"
+                    >
+                        Coba lagi
+                    </button>
+                </div>
+            ) : lockedSignals.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-zinc-800 bg-black/20 p-5 font-chakra text-sm text-zinc-400">
+                    Belum ada signal yang dipantau. Klik Pantau Signal pada kartu hasil analisis untuk mulai memantau statusnya.
                 </div>
             ) : (
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] gap-4">
@@ -320,7 +344,7 @@ function LockedPartialTpPlan({ signal }) {
                     </div>
                 ))}
             </div>
-            <p className="mt-1 font-chakra text-[10px] text-zinc-500">
+            <p className="mt-1 font-chakra text-[10px] text-zinc-400">
                 Setelah TP1 hit → SL ke {formatPriceLabel(plan.breakevenSL)} (breakeven)
             </p>
         </div>
@@ -329,16 +353,40 @@ function LockedPartialTpPlan({ signal }) {
 
 function LockedSignalCard({ signal, onDeleted }) {
     const styles = biasStyles(signal.bias);
-    const sinceEntry = Number(signal.sinceEntryPercent || 0);
-    const sinceEntryTone = sinceEntry >= 0 ? "text-[#a3e635]" : "text-[#f87171]";
+    const lifecycleStatus = resolveLockedLifecycleStatus(signal);
+    const lifecycle = describeStatus(lifecycleStatus);
+    const movement = describeLockedMovement(signal);
+    const movementTone = movement.kind === "return"
+        ? movement.percent >= 0 ? "text-[#a3e635]" : "text-[#f87171]"
+        : movement.kind === "distance" ? "text-sky-300" : "text-zinc-400";
+    const movementLabel = movement.kind === "return"
+        ? `${formatSignedPercent(movement.percent)} Sejak Entry`
+        : movement.kind === "distance"
+            ? movement.position === "at"
+                ? "Harga berada di level entry"
+                : `${movement.percent.toFixed(2)}% ${movement.position === "above" ? "di atas" : "di bawah"} entry`
+            : "Belum ada performa trade";
     const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState("");
 
     async function handleDelete() {
         if (deleting) return;
+
+        // Hapus lock signal permanen di server dan tidak bisa di-undo, jadi
+        // dikonfirmasi dulu lewat dialog bawaan browser.
+        const confirmed = window.confirm(
+            `Hapus lock signal ${signal.base}? Pantauan harga untuk rencana ini berhenti dan tidak bisa dikembalikan.`,
+        );
+
+        if (!confirmed) return;
+
         setDeleting(true);
+        setDeleteError("");
         try {
             await apiRequest(`/signals/locked/${encodeURIComponent(signal.id)}`, { method: "DELETE" });
             onDeleted(signal.id);
+        } catch (error) {
+            setDeleteError(error.message || "Lock signal gagal dihapus. Periksa koneksi lalu coba lagi.");
         } finally {
             setDeleting(false);
         }
@@ -349,14 +397,19 @@ function LockedSignalCard({ signal, onDeleted }) {
             <div className="relative flex flex-col gap-4">
                 <div className="flex flex-col gap-3 @md:flex-row @md:items-start @md:justify-between">
                     <div className="min-w-0">
-                        <span className={`rounded-md px-2 py-[3px] uppercase ${styles.badge}`} style={FIGMA_TEXT.textXsBoldWhite}>
-                            {styles.label}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className={`rounded-md px-2 py-[3px] uppercase ${styles.badge}`} style={FIGMA_TEXT.textXsBoldWhite}>
+                                {styles.label}
+                            </span>
+                            <span className={`rounded-full border px-2 py-0.5 font-chakra text-[10px] font-bold ${lifecycle.className}`}>
+                                {lifecycle.label}
+                            </span>
+                        </div>
                         <h3 className="mt-2 truncate" style={{ ...FIGMA_TEXT.textBaseMediumWhite, fontWeight: 700 }}>
                             {signal.base}/{signal.marketType === "DEX" ? "USD" : "USDT"}
                         </h3>
-                        <p className={sinceEntryTone} style={FIGMA_TEXT.textXsMedium}>
-                            {formatSignedPercent(sinceEntry)} Since Locked Signal
+                        <p className={movementTone} style={FIGMA_TEXT.textXsMedium}>
+                            {movementLabel}
                         </p>
                     </div>
                     <div className="flex items-start justify-between gap-3 @md:justify-end @md:text-right">
@@ -383,11 +436,18 @@ function LockedSignalCard({ signal, onDeleted }) {
                     </div>
                 </div>
 
+                {deleteError && (
+                    <p role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 font-chakra text-xs text-red-200">
+                        {deleteError}
+                    </p>
+                )}
+
                 <SignalProgress
                     signal={{
                         ...signal,
                         price: signal.currentPrice,
                         tp: signal.tp2,
+                        lifecycleStatus,
                     }}
                 />
 
@@ -411,7 +471,7 @@ function DashboardIntro({ session, pendingCount }) {
                 <div className="min-w-0">
                     <h1 style={FIGMA_TEXT.text2xlBoldWhite}>Dashboard</h1>
                     <p className="mt-[7px]" style={FIGMA_TEXT.textBaseRegularWhite}>
-                        Selamat datang {session.user.name || session.user.email}, Dashboard ini hanya tools, selalu DYOR dengan segala informasi yang diberikan
+                        Selamat datang, {session.user.name || session.user.email}. Dashboard ini hanya alat bantu, jadi tetap lakukan riset sendiri atas semua informasi di sini.
                     </p>
                 </div>
 
@@ -420,14 +480,14 @@ function DashboardIntro({ session, pendingCount }) {
                         href="/dashboard/signals/history"
                         className="min-h-11 rounded-md border border-zinc-700/60 bg-zinc-800/40 px-3 py-2 font-chakra text-xs font-bold text-zinc-300 transition hover:bg-zinc-700/40 hover:text-white"
                     >
-                        Signal History
+                        Riwayat signal
                     </Link>
                     {session.user.role === "ADMIN" && (
                         <Link
                             href="/dashboard/admin/users"
                             className="min-h-11 rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 font-chakra text-xs font-bold text-blue-300 transition hover:bg-blue-500/20"
                         >
-                            Review User ({pendingCount})
+                            Review user ({pendingCount})
                         </Link>
                     )}
                 </div>
@@ -468,7 +528,7 @@ function CoinSummaryCard({ coin, name, value, change24h }) {
                     <CoinBadge coin={coin} />
                     <div className="min-w-0 flex-1">
                         <p style={FIGMA_TEXT.textSmBoldWhite}>{coin}</p>
-                        <p style={{ ...FIGMA_TEXT.textXsMedium, color: "#535862" }}>{name}</p>
+                        <p style={{ ...FIGMA_TEXT.textXsMedium, color: "#A1A1AA" }}>{name}</p>
                     </div>
                     {hasChange && (
                         <div className={`shrink-0 rounded-md border px-2 py-1 ${isPositive
@@ -496,19 +556,51 @@ function MiniMetricCard({ label, value, tone, meta }) {
             <p className="truncate" style={{ ...FIGMA_TEXT.textXsMedium, color: "#FFFFFF" }}>{label}</p>
             <p className={tone} style={FIGMA_TEXT.textXsMedium}>{value}</p>
             {meta && (
-                <p className="truncate font-chakra text-[10px] font-bold uppercase leading-3 text-zinc-500">{meta}</p>
+                <p className="truncate font-chakra text-[10px] font-bold uppercase leading-3 text-zinc-400">{meta}</p>
             )}
         </div>
     );
 }
 
-function TimeframeMenu({ current, onChange }) {
+function TimeframeMenu({ current, pendingTimeframe, onChange }) {
     const options = ["1m", "15m", "1h", "4h", "1d"];
+    const detailsRef = useRef(null);
+    // Kontrol lain tetap bisa dipakai selama refresh, jadi tidak ada `disabled`
+    // di sini: user boleh berpindah lagi tanpa menunggu request yang lambat.
+    const label = pendingTimeframe ? describePendingTimeframe(pendingTimeframe) : formatTimeframeLabel(current);
+
+    function closeMenu({ focusSummary = false } = {}) {
+        const details = detailsRef.current;
+        if (!details?.open) return;
+
+        details.open = false;
+        if (focusSummary) details.querySelector("summary")?.focus();
+    }
+
+    function handleSelect(option) {
+        onChange(option);
+        closeMenu({ focusSummary: true });
+    }
 
     return (
-        <details className="group relative z-50 shrink-0">
-            <summary className="flex min-h-11 w-[92px] cursor-pointer list-none items-center justify-center gap-2 rounded-md border border-[#36353d] bg-[#d9f99d] px-2 py-2.5 shadow-[0_1px_2px_rgba(20,21,26,0.05)] transition duration-300 ease-out marker:hidden hover:bg-[#cff789] active:scale-[0.98] group-open:rounded-b-none group-open:border-[#B7FB5B]/70 [&::-webkit-details-marker]:hidden">
-                <span className="min-w-[2.25rem] text-center uppercase" style={{ ...FIGMA_TEXT.textXsMedium, color: "#16161e" }}>{current}</span>
+        <details
+            ref={detailsRef}
+            className="group relative z-50 shrink-0"
+            onKeyDown={(event) => {
+                if (event.key !== "Escape") return;
+                event.preventDefault();
+                closeMenu({ focusSummary: true });
+            }}
+            onBlur={(event) => {
+                if (event.currentTarget.contains(event.relatedTarget)) return;
+                closeMenu();
+            }}
+        >
+            <summary
+                aria-busy={pendingTimeframe ? "true" : undefined}
+                className="flex min-h-11 w-[92px] cursor-pointer list-none items-center justify-center gap-2 rounded-md border border-[#36353d] bg-[#d9f99d] px-2 py-2.5 shadow-[0_1px_2px_rgba(20,21,26,0.05)] transition duration-300 ease-out marker:hidden hover:bg-[#cff789] active:scale-[0.98] group-open:rounded-b-none group-open:border-[#B7FB5B]/70 [&::-webkit-details-marker]:hidden aria-busy:w-[128px]"
+            >
+                <span className="min-w-[2.25rem] truncate text-center uppercase" style={{ ...FIGMA_TEXT.textXsMedium, color: "#16161e" }}>{label}</span>
                 <svg
                     className="size-4 shrink-0 text-[#16161e] transition-transform duration-300 ease-out group-open:rotate-180"
                     viewBox="0 0 20 20"
@@ -522,19 +614,20 @@ function TimeframeMenu({ current, onChange }) {
                     <path d="M5 8l5 5 5-5" />
                 </svg>
             </summary>
-            <div className="absolute right-0 top-full z-50 flex w-[92px] origin-top flex-col overflow-hidden rounded-b-md border border-t-0 border-[#36353d] bg-[#17161c] opacity-0 shadow-xl transition duration-300 ease-out group-open:opacity-100 group-open:animate-[timeframe-menu_180ms_ease-out]">
+            <div className="absolute right-0 top-full z-50 flex w-[92px] origin-top flex-col overflow-hidden rounded-b-md border border-t-0 border-[#36353d] bg-[#17161c] opacity-0 shadow-xl transition duration-300 ease-out group-open:opacity-100 motion-safe:group-open:animate-[timeframe-menu_180ms_ease-out]">
                 {options.map((option) => (
                     <button
                         key={option}
                         type="button"
-                        onClick={() => onChange(option)}
-                        className={`px-3 py-2 text-center uppercase transition ${option === current
+                        onClick={() => handleSelect(option)}
+                        aria-current={option === current ? "true" : undefined}
+                        className={`min-h-11 px-3 py-2 text-center uppercase transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#B7FB5B] ${option === current
                             ? "bg-[#d9f99d] text-[#16161e]"
                             : "text-[#949398] hover:bg-white/[0.04] hover:text-white"
                             }`}
                         style={FIGMA_TEXT.textXsMedium}
                     >
-                        {option}
+                        {option === pendingTimeframe ? describePendingTimeframe(option) : option}
                     </button>
                 ))}
             </div>
@@ -542,7 +635,7 @@ function TimeframeMenu({ current, onChange }) {
     );
 }
 
-function DashboardOverview({ marketDashboard, session, pendingCount, onTimeframeChange }) {
+function DashboardOverview({ marketDashboard, session, pendingCount, pendingTimeframe, onTimeframeChange }) {
     const usdtDominanceTrendRegime = marketDashboard.usdtDominanceTrend?.regime || "UNKNOWN";
     const regimeText = marketDashboard.usdtDominance.market
         ? marketDashboard.usdtDominance.market.toLowerCase().replace(/^market\s*/, "")
@@ -581,12 +674,16 @@ function DashboardOverview({ marketDashboard, session, pendingCount, onTimeframe
                 >
                     <div className="flex w-full flex-col items-start gap-3 min-[420px]:flex-row min-[420px]:items-center">
                         <div className="min-w-0 flex-1 text-white">
-                            <p style={FIGMA_TEXT.textBaseMediumWhite}>Market REGIME</p>
+                            <p style={FIGMA_TEXT.textBaseMediumWhite}>Market regime</p>
                             <h2 className="mt-[7px] text-balance" style={FIGMA_TEXT.text2xlBoldWhite}>
-                                Market its Still {regimeText}
+                                Market masih {regimeText}
                             </h2>
                         </div>
-                        <TimeframeMenu current={marketDashboard.timeframe} onChange={onTimeframeChange} />
+                        <TimeframeMenu
+                            current={marketDashboard.timeframe}
+                            pendingTimeframe={pendingTimeframe}
+                            onChange={onTimeframeChange}
+                        />
                     </div>
                 </article>
             </section>
@@ -596,108 +693,78 @@ function DashboardOverview({ marketDashboard, session, pendingCount, onTimeframe
 
 export default function DashboardPage() {
     const { user } = useAuth();
-    const [marketDashboard, setMarketDashboard] = useState(null);
-    const [lockedSignals, setLockedSignals] = useState([]);
-    const [pendingCount, setPendingCount] = useState(0);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [error, setError] = useState("");
-    const [query, setQuery] = useState({ timeframe: "15m", symbol: "" });
+    const isSignedIn = Boolean(user);
+    const market = useMarketDashboard({ enabled: isSignedIn });
+    const locked = useLockedSignals({ enabled: isSignedIn });
+    const admin = useAdminSummary({ enabled: isSignedIn && user?.role === "ADMIN" });
 
-    useEffect(() => {
-        const syncQueryFromUrl = () => {
-            const params = new URLSearchParams(window.location.search);
-            setQuery({ timeframe: params.get("timeframe") || "15m", symbol: params.get("symbol") || "" });
-        };
-
-        syncQueryFromUrl();
-        window.addEventListener("popstate", syncQueryFromUrl);
-        return () => window.removeEventListener("popstate", syncQueryFromUrl);
-    }, []);
-
-    const handleTimeframeChange = useCallback((timeframe) => {
-        if (query.timeframe === timeframe) return;
-
-        const next = { ...query, timeframe };
-        const params = new URLSearchParams({ timeframe });
-        if (next.symbol) params.set("symbol", next.symbol);
-        window.history.pushState({}, "", `${window.location.pathname}?${params.toString()}`);
-        setQuery(next);
-    }, [query]);
-
-    const loadDashboard = useCallback(async ({ quiet = false } = {}) => {
-        if (!user) return;
-        if (quiet) setRefreshing(true);
-        else setLoading(true);
-        setError("");
-        try {
-            const requests = [
-                apiRequest("/market/dashboard", { query }),
-                apiRequest("/signals/locked", { query: { page: 1, status: "ACTIVE" } }),
-            ];
-            if (user.role === "ADMIN") requests.push(apiRequest("/admin/users", { query: { page: 1, limit: 100 } }));
-            const [dashboardData, lockedData, usersData] = await Promise.all(requests);
-            setMarketDashboard(dashboardData);
-            setLockedSignals(lockedData.items || lockedData.lockedSignals || []);
-            setPendingCount((usersData?.items || usersData?.users || []).filter((item) => item.statusReview === "PENDING").length);
-        } catch (loadError) {
-            setError(loadError instanceof Error ? loadError.message : "Dashboard gagal dimuat.");
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    }, [query, user]);
-
-    useEffect(() => {
-        loadDashboard();
-    }, [loadDashboard]);
-
-    useEffect(() => {
-        if (!user) return undefined;
-        const interval = window.setInterval(() => loadDashboard({ quiet: true }), 5 * 60 * 1000);
-        return () => window.clearInterval(interval);
-    }, [loadDashboard, user]);
-
+    const { dashboard, pendingTimeframe, displayedTimeframe, initialLoading, refreshing, error } = market;
+    const dataHealth = describeDataHealth(dashboard?.meta);
     const session = { user: user || {} };
 
     return (
         <DashboardShell>
             <div className="mx-auto w-full max-w-[1600px] px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-                {loading && <div className="grid min-h-[50vh] place-items-center font-chakra text-sm text-zinc-500">Memuat dashboard…</div>}
-                {error && !loading && (
-                    <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-5 font-chakra text-sm text-red-200">
-                        {error}
-                        <button type="button" onClick={() => loadDashboard()} className="ml-3 underline">Coba lagi</button>
+                {initialLoading && !dashboard && (
+                    <div className="grid min-h-[50vh] place-items-center font-chakra text-sm text-zinc-400">Memuat data market…</div>
+                )}
+
+                {/* Kegagalan memperbarui tidak menghapus board. Pesannya menyebut
+                    timeframe yang diminta dan yang masih ditampilkan. */}
+                {error && (
+                    <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 font-chakra text-sm text-red-200">
+                        <span>{error}</span>
+                        <button
+                            type="button"
+                            onClick={market.retry}
+                            className="min-h-11 rounded-md border border-red-400/40 px-3 font-bold text-red-100 underline transition hover:bg-red-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-300"
+                        >
+                            Coba lagi
+                        </button>
                     </div>
                 )}
-                {marketDashboard && !loading && (
-                    <>
-                <DashboardOverview
-                    marketDashboard={marketDashboard}
-                    session={session}
-                    pendingCount={pendingCount}
-                    onTimeframeChange={handleTimeframeChange}
-                />
 
-                <LockedSignalList
-                    lockedSignals={lockedSignals}
-                    refreshing={refreshing}
-                    onRefresh={() => loadDashboard({ quiet: true })}
-                    onDeleted={(id) => setLockedSignals((items) => items.filter((item) => item.id !== id))}
-                />
+                {dashboard && (
+                    <div aria-busy={refreshing ? "true" : "false"}>
+                        {/* Status data ditulis sebagai teks, bukan hanya warna. */}
+                        {dataHealth.text && (
+                            <p className="mb-4 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 font-chakra text-sm text-amber-200">
+                                {dataHealth.text}
+                            </p>
+                        )}
 
-                <DashboardSignalWorkspace
-                    key={marketDashboard.timeframe}
-                    initialSignals={marketDashboard.signals}
-                    initialSearchKeyword={query.symbol}
-                    timeframe={marketDashboard.timeframe}
-                    updatedAt={marketDashboard.updatedAt}
-                    onLocked={(lockedSignal) => setLockedSignals((items) => [
-                        lockedSignal,
-                        ...items.filter((item) => item.id !== lockedSignal.id),
-                    ])}
-                />
-                    </>
+                        <DashboardOverview
+                            marketDashboard={dashboard}
+                            session={session}
+                            pendingCount={admin.pendingCount}
+                            pendingTimeframe={pendingTimeframe}
+                            onTimeframeChange={market.selectTimeframe}
+                        />
+
+                        <LockedSignalList
+                            lockedSignals={locked.items}
+                            loading={locked.loading}
+                            error={locked.error}
+                            refreshing={locked.refreshing}
+                            onRefresh={locked.refresh}
+                            onRetry={locked.retry}
+                            onDeleted={(id) => locked.setItems((items) => items.filter((item) => item.id !== id))}
+                        />
+
+                        {/* Tanpa `key` timeframe: workspace menerima data baru lewat
+                            props dan menyimpan state yang tidak terkait timeframe. */}
+                        <DashboardSignalWorkspace
+                            initialSignals={dashboard.signals}
+                            initialSearchKeyword={market.symbol}
+                            timeframe={displayedTimeframe}
+                            updatedAt={dashboard.updatedAt}
+                            lockedSignalPlanIds={locked.items.map((signal) => signal.signalPlanId).filter(Boolean)}
+                            onLocked={(lockedSignal) => locked.setItems((items) => [
+                                lockedSignal,
+                                ...items.filter((item) => item.id !== lockedSignal.id),
+                            ])}
+                        />
+                    </div>
                 )}
             </div>
         </DashboardShell>

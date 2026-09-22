@@ -64,7 +64,7 @@ function NavItem({ Icon, label, href, active = false, collapsed, animated = fals
             onPointerLeave={() => animated && setHovered(false)}
             className={`flex h-10 w-full items-center overflow-hidden rounded-lg font-chakra text-base leading-6 transition ${collapsed ? "justify-center px-0" : "gap-2 px-3"} ${active
                 ? "bg-gradient-to-r from-white/40 to-transparent font-bold text-white"
-                : "font-medium text-[#5C5C5C] hover:bg-white/[0.03] hover:text-white"
+                : "font-medium text-[#9A9A9A] hover:bg-white/[0.03] hover:text-white"
                 }`}
         >
             {animated ? (
@@ -110,7 +110,7 @@ function Sidebar({ collapsed, onToggle, user, logoutSlot, pathname }) {
                 <div className="flex min-w-0 items-center gap-3">
                     <LogoMark />
                     <div className={`flex min-w-0 flex-col justify-center gap-0.5 whitespace-nowrap ${collapsed ? "sr-only" : ""}`}>
-                        <span className="truncate font-nebulica text-[10px] font-bold leading-[8px] text-[#878787] opacity-40">
+                        <span className="truncate font-nebulica text-[10px] font-bold leading-[8px] text-[#9A9A9A]">
                             Diskusi Crypto Micin Saham
                         </span>
                         <span className="font-chakra text-base font-bold leading-6 text-white">
@@ -131,7 +131,7 @@ function Sidebar({ collapsed, onToggle, user, logoutSlot, pathname }) {
             </div>
 
             {/* Content: main menu */}
-            <nav className="relative z-10 flex flex-1 flex-col gap-3 px-4 py-2">
+            <nav aria-label="Menu utama" className="relative z-10 flex flex-1 flex-col gap-3 px-4 py-2">
                 <div className="flex flex-col gap-0.5">
                     <p className={`px-3 pb-2 text-[12px] font-medium uppercase leading-4 tracking-[0.48px] text-[#A3A3A3] ${collapsed ? "sr-only" : ""}`}>
                         Main Menu
@@ -176,7 +176,7 @@ function Sidebar({ collapsed, onToggle, user, logoutSlot, pathname }) {
 
 function MobileNav({ logoutSlot, pathname }) {
     return (
-        <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0A0D12]/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
+        <nav aria-label="Menu utama" className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0A0D12]/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
             <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
                 {NAV_ITEMS.map((item) => {
                     const active = isNavActive(pathname, item.href);
@@ -187,7 +187,7 @@ function MobileNav({ logoutSlot, pathname }) {
                             href={item.href}
                             className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold leading-none transition ${active
                                 ? "border border-white/10 bg-gradient-to-r from-white/40 to-transparent text-white"
-                                : "text-[#5C5C5C] hover:bg-white/[0.03] hover:text-white"
+                                : "text-[#9A9A9A] hover:bg-white/[0.03] hover:text-white"
                                 }`}
                         >
                             {item.animated ? (
@@ -227,6 +227,12 @@ export default function DashboardShell({ user, logoutSlot, children }) {
                 "--sidebar-width": `${sidebarWidth}px`,
             }}
         >
+            <a
+                href="#dashboard-content"
+                className="fixed left-4 top-4 z-[60] -translate-y-24 rounded-lg bg-[#B7FB5B] px-4 py-2 font-chakra text-sm font-bold text-black focus:translate-y-0 motion-safe:transition-transform"
+            >
+                Lewati ke konten
+            </a>
             <Sidebar
                 collapsed={collapsed}
                 onToggle={() => setCollapsed((current) => !current)}
@@ -235,7 +241,9 @@ export default function DashboardShell({ user, logoutSlot, children }) {
                 pathname={pathname}
             />
             <main
-                className="min-h-dvh bg-gradient-to-b from-[#23252a] to-[#111315] pb-24 transition-[padding-left] duration-300 ease-out lg:pb-0 lg:pl-[var(--sidebar-width)]"
+                id="dashboard-content"
+                tabIndex={-1}
+                className="min-h-dvh focus:outline-none bg-gradient-to-b from-[#23252a] to-[#111315] pb-24 transition-[padding-left] duration-300 ease-out lg:pb-0 lg:pl-[var(--sidebar-width)]"
             >
                 {children}
             </main>

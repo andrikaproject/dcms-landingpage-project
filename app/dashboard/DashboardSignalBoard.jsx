@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api/client";
+import { lockSignalPlan } from "@/lib/signals/api";
+import SignalEventTimeline from "./signals/pending/SignalEventTimeline";
 
 const FONT_CHAKRA = "var(--font-chakra-petch), Chakra Petch, sans-serif";
 const FIGMA_TEXT = {
@@ -107,7 +109,7 @@ function entryZoneStatusStyle(status) {
         "near-edge": { label: "Hampir Expired",    className: "border-yellow-400/30 bg-yellow-500/10 text-yellow-300" },
         "expired":   { label: "Setup Terlewat",    className: "border-zinc-600/30 bg-zinc-700/20 text-zinc-400" },
         "missed":    { label: "Setup Tidak Valid", className: "border-red-400/30 bg-red-500/10 text-red-300" },
-        "invalid":   { label: "Zone Invalid",      className: "border-zinc-600/30 bg-zinc-700/20 text-zinc-500" },
+        "invalid":   { label: "Zone Invalid",      className: "border-zinc-600/30 bg-zinc-700/20 text-zinc-400" },
     };
     return map[status] ?? map["invalid"];
 }
@@ -220,7 +222,7 @@ function SignalLevel({ label, value, align = "left", sublabel = null }) {
             <p style={FIGMA_TEXT.textXsBoldWhite}>{label}</p>
             <p className="truncate" style={FIGMA_TEXT.textXsBoldWhite}>{value}</p>
             {sublabel && (
-                <p className="w-full truncate font-chakra text-[10px] font-normal text-zinc-500">{sublabel}</p>
+                <p className="w-full truncate font-chakra text-[10px] font-normal text-zinc-400">{sublabel}</p>
             )}
         </div>
     );
@@ -287,6 +289,7 @@ function SignalProgress({ signal }) {
         <div className="relative sm:h-[62px]">
             <div
                 className="group relative h-4 w-full sm:h-5"
+                role="img"
                 aria-label={`${signal.base} progress from stop loss to targets. Current price ${formatPriceLabel(signal.price)}.`}
             >
                 <div className="absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-[5px] bg-[#334155] sm:h-2.5" />
@@ -381,7 +384,7 @@ function PartialTpPlanCompact({ partialTpPlan }) {
                     </div>
                 ))}
             </div>
-            <p className="mt-1 font-chakra text-[10px] text-zinc-500">
+            <p className="mt-1 font-chakra text-[10px] text-zinc-400">
                 Setelah TP1 hit → SL ke {formatPriceLabel(partialTpPlan.breakevenSL)} (breakeven)
             </p>
         </div>
@@ -550,7 +553,7 @@ function ConservativeModePanel({ gate }) {
     if (!gate) {
         return (
             <div className="flex items-center justify-center rounded-lg border border-dashed border-zinc-700 bg-black/10 py-5">
-                <p className="font-chakra text-xs text-zinc-500">Re-analyze untuk melihat Conservative Mode.</p>
+                <p className="font-chakra text-xs text-zinc-400">Re-analyze untuk melihat Conservative Mode.</p>
             </div>
         );
     }
@@ -569,11 +572,11 @@ function ConservativeModePanel({ gate }) {
                     {styles.icon} {gate.statusLabel}
                 </span>
                 {gate.evidence?.sampleSize ? (
-                    <span className="font-chakra text-[10px] text-zinc-500">
+                    <span className="font-chakra text-[10px] text-zinc-400">
                         {gate.evidence.sampleSize} histori · {gate.evidence.queryType === "broad" ? "lintas symbol" : "symbol ini"}
                     </span>
                 ) : !gate.evidenceActive && isReady ? (
-                    <span className="font-chakra text-[10px] text-zinc-500">Belum cukup histori</span>
+                    <span className="font-chakra text-[10px] text-zinc-400">Belum cukup histori</span>
                 ) : null}
             </div>
 
@@ -751,7 +754,7 @@ function DecisionItem({ label, value }) {
         <div className="min-w-0 rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
             <div className="flex items-center justify-between gap-2">
                 <p className="truncate font-chakra text-xs text-zinc-400">{label}</p>
-                <span className="grid size-4 shrink-0 place-items-center rounded-full border border-zinc-600 text-[10px] text-zinc-500">
+                <span className="grid size-4 shrink-0 place-items-center rounded-full border border-zinc-600 text-[10px] text-zinc-400">
                     ?
                 </span>
             </div>
@@ -795,7 +798,7 @@ function SignalDetailMiniProgress({ signal }) {
                     <p className="font-chakra text-xs text-zinc-400">R:R</p>
                     <p className="mt-1 font-chakra text-xs font-medium text-white">{rrLabel}</p>
                     {liveRRLabel && (
-                        <p className="mt-0.5 font-chakra text-[10px] text-zinc-500">Live {liveRRLabel}</p>
+                        <p className="mt-0.5 font-chakra text-[10px] text-zinc-400">Live {liveRRLabel}</p>
                     )}
                 </div>
                 <div className="rounded-lg bg-white/[0.04] p-3">
@@ -912,7 +915,7 @@ function VpvrDetailSection({ signal }) {
                             className={`rounded px-2.5 py-1 font-chakra text-[10px] font-bold uppercase transition ${
                                 period === p
                                     ? "bg-[#B7FB5B]/20 text-[#B7FB5B]"
-                                    : "text-zinc-500 hover:text-zinc-300"
+                                    : "text-zinc-400 hover:text-zinc-300"
                             }`}
                         >
                             {p === "24h" ? "24H" : "Weekly"}
@@ -928,7 +931,7 @@ function VpvrDetailSection({ signal }) {
                         {Array.from({ length: 24 }).map((_, i) => (
                             <div key={i} className="flex items-center" style={{ height: 7 }}>
                                 <div
-                                    className="h-[5px] animate-pulse rounded-sm bg-white/[0.06]"
+                                    className="h-[5px] motion-safe:animate-pulse rounded-sm bg-white/[0.06]"
                                     style={{ width: `${24 + (i % 7) * 8}%` }}
                                 />
                             </div>
@@ -984,7 +987,7 @@ function VpvrDetailSection({ signal }) {
                                 );
                             })}
                         </div>
-                        <p className="mt-2 font-chakra text-[10px] text-zinc-500">
+                        <p className="mt-2 font-chakra text-[10px] text-zinc-400">
                             ↕ {profile.length} bins · {periodLabel} · kuning = POC · hover untuk harga
                         </p>
                     </div>
@@ -995,17 +998,17 @@ function VpvrDetailSection({ signal }) {
                     <div className="rounded-lg bg-white/[0.04] p-3">
                         <p className="font-chakra text-xs text-zinc-400">VAH</p>
                         <p className="mt-1 truncate font-chakra text-xs font-medium text-white">{formatPriceLabel(vah)}</p>
-                        <p className="mt-0.5 font-chakra text-[10px] text-zinc-500">Value Area High</p>
+                        <p className="mt-0.5 font-chakra text-[10px] text-zinc-400">Value Area High</p>
                     </div>
                     <div className="rounded-lg border border-[#B7FB5B]/20 bg-[#B7FB5B]/5 p-3">
                         <p className="font-chakra text-xs text-[#B7FB5B]">POC</p>
                         <p className="mt-1 truncate font-chakra text-xs font-bold text-white">{formatPriceLabel(poc)}</p>
-                        <p className="mt-0.5 font-chakra text-[10px] text-zinc-500">Point of Control</p>
+                        <p className="mt-0.5 font-chakra text-[10px] text-zinc-400">Point of Control</p>
                     </div>
                     <div className="rounded-lg bg-white/[0.04] p-3">
                         <p className="font-chakra text-xs text-zinc-400">VAL</p>
                         <p className="mt-1 truncate font-chakra text-xs font-medium text-white">{formatPriceLabel(val)}</p>
-                        <p className="mt-0.5 font-chakra text-[10px] text-zinc-500">Value Area Low</p>
+                        <p className="mt-0.5 font-chakra text-[10px] text-zinc-400">Value Area Low</p>
                     </div>
                 </div>
 
@@ -1035,11 +1038,11 @@ function VpvrDetailSection({ signal }) {
                             {/* HVN — support/resistance kuat */}
                             <div className="space-y-1.5">
                                 <p className="font-chakra text-[10px] uppercase tracking-wide text-[#8AEF5A]">HVN · Magnet</p>
-                                {hvn.length === 0 && <p className="font-chakra text-[10px] text-zinc-600">—</p>}
+                                {hvn.length === 0 && <p className="font-chakra text-[10px] text-zinc-400">—</p>}
                                 {hvn.map((n, i) => (
                                     <div key={`hvn-${i}`} className="flex items-center justify-between gap-2">
                                         <span className="font-chakra text-xs text-white">{formatPriceLabel(n.price)}</span>
-                                        <span className="font-chakra text-[10px] text-zinc-500">{n.strength}%</span>
+                                        <span className="font-chakra text-[10px] text-zinc-400">{n.strength}%</span>
                                     </div>
                                 ))}
                             </div>
@@ -1047,11 +1050,11 @@ function VpvrDetailSection({ signal }) {
                             {/* LVN — zona gerak cepat */}
                             <div className="space-y-1.5">
                                 <p className="font-chakra text-[10px] uppercase tracking-wide text-amber-400">LVN · Runway</p>
-                                {lvn.length === 0 && <p className="font-chakra text-[10px] text-zinc-600">—</p>}
+                                {lvn.length === 0 && <p className="font-chakra text-[10px] text-zinc-400">—</p>}
                                 {lvn.map((n, i) => (
                                     <div key={`lvn-${i}`} className="flex items-center justify-between gap-2">
                                         <span className="font-chakra text-xs text-white">{formatPriceLabel(n.price)}</span>
-                                        <span className="font-chakra text-[10px] text-zinc-500">{n.strength}%</span>
+                                        <span className="font-chakra text-[10px] text-zinc-400">{n.strength}%</span>
                                     </div>
                                 ))}
                             </div>
@@ -1150,7 +1153,7 @@ function PartialTpPlanDetailSection({ plan }) {
                             <p className="font-chakra text-xs text-zinc-400">{formatPriceLabel(leg.price)}</p>
                         </div>
                         {leg.level === "tp1" && (
-                            <p className="shrink-0 text-right font-chakra text-[10px] text-zinc-500">
+                            <p className="shrink-0 text-right font-chakra text-[10px] text-zinc-400">
                                 Setelah hit →<br />pindah SL ke BE
                             </p>
                         )}
@@ -1366,19 +1369,54 @@ function deriveKeyConfluence(signal) {
     return { trendValue, levelValue, momentumValue, conflictValue };
 }
 
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 function SignalDetailSideout({ signal, onClose }) {
+    const panelRef = useRef(null);
+
+    // Panel ini modal: fokus dipindah ke dalam saat dibuka, ditahan di dalam
+    // selama terbuka, lalu dikembalikan ke pemicunya saat ditutup.
     useEffect(() => {
+        const trigger = document.activeElement;
+        const panel = panelRef.current;
+
         function handleKeyDown(event) {
-            if (event.key === "Escape") onClose();
+            if (event.key === "Escape") {
+                onClose();
+                return;
+            }
+
+            if (event.key !== "Tab" || !panel) return;
+
+            const focusable = Array.from(panel.querySelectorAll(FOCUSABLE_SELECTOR));
+
+            if (focusable.length === 0) {
+                event.preventDefault();
+                panel.focus();
+                return;
+            }
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
         }
 
         document.addEventListener("keydown", handleKeyDown);
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = "hidden";
+        panel?.focus();
 
         return () => {
             document.removeEventListener("keydown", handleKeyDown);
             document.body.style.overflow = previousOverflow;
+            if (trigger instanceof HTMLElement) trigger.focus();
         };
     }, [onClose]);
 
@@ -1398,21 +1436,23 @@ function SignalDetailSideout({ signal, onClose }) {
 
     return (
         <div
-            className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm animate-[sideout-backdrop_180ms_ease-out]"
+            className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm motion-safe:animate-[sideout-backdrop_180ms_ease-out]"
             role="presentation"
             onMouseDown={onClose}
         >
             <aside
+                ref={panelRef}
                 role="dialog"
                 aria-modal="true"
                 aria-label={`Detail signal ${signal.base}`}
-                className="relative flex h-dvh w-full max-w-[514px] flex-col overflow-hidden bg-[#141618] shadow-[0_24px_48px_-12px_rgba(10,13,18,0.45)] animate-[sideout-panel_240ms_cubic-bezier(0.22,1,0.36,1)] sm:rounded-l-3xl"
+                tabIndex={-1}
+                className="relative flex h-dvh w-full max-w-[514px] flex-col overflow-hidden bg-[#141618] shadow-[0_24px_48px_-12px_rgba(10,13,18,0.45)] focus:outline-none motion-safe:animate-[sideout-panel_240ms_cubic-bezier(0.22,1,0.36,1)] sm:rounded-l-3xl"
                 onMouseDown={(event) => event.stopPropagation()}
             >
                 <SignalDetailTopHeader signal={signal} onClose={onClose} />
                 <section className="relative flex-1 overflow-hidden">
                     <div
-                        className="h-full overflow-y-auto"
+                        className="h-full overflow-y-auto overscroll-contain"
                         style={{
                             padding: "2rem 2rem",
                         }}
@@ -1492,7 +1532,7 @@ function SignalDetailSideout({ signal, onClose }) {
                             <PartialTpPlanDetailSection plan={signal.partialTpPlan} />
                         )}
 
-                        <section className="mt-8 pb-8">
+                        <section className="mt-8">
                             <p className="font-chakra text-xs font-bold uppercase text-white">Key Confluence</p>
                             <div className="mt-4">
                                 <ConfluenceRow label="Trend" value={confluence.trendValue} />
@@ -1501,6 +1541,14 @@ function SignalDetailSideout({ signal, onClose }) {
                                 <ConfluenceRow label="Conflict" value={confluence.conflictValue} />
                             </div>
                         </section>
+
+                        {/* Histori lifecycle pindah ke sini dari kartu Hasil Analisis;
+                            hanya rencana yang punya signalId yang dilacak backend. */}
+                        {signal.signalId && (
+                            <section className="mt-8 pb-8">
+                                <SignalEventTimeline signalId={signal.signalId} />
+                            </section>
+                        )}
                     </div>
                 </section>
             </aside>
@@ -1511,6 +1559,7 @@ function SignalDetailSideout({ signal, onClose }) {
 function SignalCard({ signal, selectedSymbol, cooldownRemaining, error, isConservativeMode, onReanalyze, onDelete, onCheckDetail, onToggleMode, onLocked }) {
     const [locking, setLocking] = useState(false);
     const [locked, setLocked] = useState(false);
+    const [lockError, setLockError] = useState("");
     const styles = biasStyles(signal.bias);
     const isDex = signal.marketType === "DEX" || !signal.indicatorAvailable;
     const riskPercent = Number(signal.riskPercent || 0);
@@ -1550,7 +1599,7 @@ function SignalCard({ signal, selectedSymbol, cooldownRemaining, error, isConser
                                     className={`rounded border px-1.5 py-0.5 font-chakra text-[10px] font-bold transition ${
                                         showConservative
                                             ? "border-[#B7FB5B]/30 bg-[#B7FB5B]/15 text-[#B7FB5B]"
-                                            : "border-zinc-700 bg-black/10 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
+                                            : "border-zinc-700 bg-black/10 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
                                     }`}
                                 >
                                     {showConservative ? "◀ Std" : "Gate"}
@@ -1613,9 +1662,9 @@ function SignalCard({ signal, selectedSymbol, cooldownRemaining, error, isConser
                     </div>
                 )}
 
-                {error && (
+                {(error || lockError) && (
                     <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 font-chakra text-xs text-red-200">
-                        {error}
+                        {error || lockError}
                     </p>
                 )}
 
@@ -1626,10 +1675,15 @@ function SignalCard({ signal, selectedSymbol, cooldownRemaining, error, isConser
                             disabled={locking || locked || !tradePlanAvailable}
                             onClick={async () => {
                                 setLocking(true);
+                                setLockError("");
                                 try {
-                                    const payload = await apiRequest("/signals/locked", { method: "POST", body: signal });
+                                    // Lock mengikuti signalId begitu backend menerbitkannya;
+                                    // body lama dipertahankan selama rollout.
+                                    const payload = await lockSignalPlan({ signalId: signal.signalId ?? null }, signal);
                                     setLocked(true);
                                     if (payload.signal) onLocked?.(payload.signal);
+                                } catch (lockFailure) {
+                                    setLockError(lockFailure?.message || "Lock signal gagal.");
                                 } finally {
                                     setLocking(false);
                                 }
@@ -1637,7 +1691,7 @@ function SignalCard({ signal, selectedSymbol, cooldownRemaining, error, isConser
                             className="relative flex min-h-10 w-full items-center justify-center overflow-hidden rounded-md border-2 border-white/10 bg-[#B7FB5B] px-2 py-1.5 shadow-[0_1px_2px_rgba(10,13,18,0.05),inset_0_-2px_0_rgba(10,13,18,0.05),inset_0_0_0_1px_rgba(10,13,18,0.18)] transition hover:bg-[#a8ec4c] disabled:cursor-not-allowed disabled:opacity-45 sm:min-h-11 sm:rounded-lg sm:px-3 sm:py-2"
                             title={!tradePlanAvailable ? "Signal netral belum memiliki level untuk di-lock" : undefined}
                         >
-                            <span className="truncate text-black" style={{ ...FIGMA_TEXT.textSmBoldWhite, color: "#000000", fontSize: "clamp(0.6875rem, 0.65rem + 0.2vw, 0.875rem)" }}>{locked ? "Locked" : locking ? "Locking…" : tradePlanAvailable ? "Lock Signal" : "No Setup"}</span>
+                            <span className="truncate text-black" style={{ ...FIGMA_TEXT.textSmBoldWhite, color: "#000000", fontSize: "clamp(0.6875rem, 0.65rem + 0.2vw, 0.875rem)" }}>{locked ? "Dipantau" : locking ? "Menambahkan…" : tradePlanAvailable ? "Lock Signal" : "No Setup"}</span>
                         </button>
                     </div>
                     <div className="min-w-0 flex-1">
@@ -1724,7 +1778,7 @@ function EmptySignalState({ searchKeyword, filterMode }) {
     const hasActiveFilter = filterMode && filterMode !== "all";
 
     return (
-        <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/70 p-4 font-chakra text-sm text-zinc-500 sm:p-6">
+        <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/70 p-4 font-chakra text-sm text-zinc-400 sm:p-6">
             {searchKeyword
                 ? `Tidak ada signal yang cocok dengan "${searchKeyword}". Coba gunakan symbol coin seperti BTC, ETH, SOL, atau PEPE.`
                 : hasActiveFilter

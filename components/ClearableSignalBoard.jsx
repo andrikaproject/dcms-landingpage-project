@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 function ClearIcon() {
     return (
         <svg
@@ -24,43 +22,29 @@ function ClearIcon() {
     );
 }
 
-export default function ClearableSignalBoard({ updatedAt, signalCount, controls, children }) {
-    const [isCleared, setIsCleared] = useState(false);
-
+export default function ClearableSignalBoard({ updatedAt, signalCount, onClear, controls, children }) {
     return (
-        <section>
+        <section aria-labelledby="signal-board-heading">
             <div className="mb-4 flex flex-wrap items-center gap-3">
-                <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-600">Signal Board</p>
+                <h2 id="signal-board-heading" className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-400">Signal Board</h2>
                 <div className="h-px min-w-[min(8rem,100%)] flex-1 bg-gradient-to-r from-zinc-800 to-transparent" />
-                <p className="text-xs text-zinc-600">Updated {updatedAt}</p>
+                <p className="text-xs text-zinc-400">Updated {updatedAt}</p>
                 {signalCount > 0 && (
                     <button
                         type="button"
-                        onClick={() => setIsCleared((current) => !current)}
-                        className={`flex min-h-11 items-center gap-2 rounded-lg border px-3 font-chakra text-xs font-bold transition active:scale-95 ${isCleared
-                            ? "border-[#B7FB5B]/30 bg-[#B7FB5B]/10 text-[#B7FB5B] hover:bg-[#B7FB5B]/15"
-                            : "border-red-500/20 bg-red-500/10 text-red-300 hover:bg-red-500/15 hover:text-red-200"
-                            }`}
-                        aria-pressed={isCleared}
+                        onClick={onClear}
+                        className="flex min-h-11 items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 font-chakra text-xs font-bold text-red-300 transition hover:bg-red-500/15 hover:text-red-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-300 active:scale-95"
                     >
                         <ClearIcon />
-                        {isCleared ? "Show Signals" : "Clear All Signal"}
+                        Clear all signals
                     </button>
                 )}
             </div>
 
-            {isCleared ? (
-                <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/70 p-4 font-chakra text-sm text-zinc-500 sm:p-6">
-                    Signal board sudah dikosongkan untuk sesi ini. Klik Show Signals kalau mau menampilkan ulang.
-                </div>
-            ) : (
-                <>
-                    {controls}
-                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] gap-4">
-                        {children}
-                    </div>
-                </>
-            )}
+            {controls}
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] gap-4">
+                {children}
+            </div>
         </section>
     );
 }

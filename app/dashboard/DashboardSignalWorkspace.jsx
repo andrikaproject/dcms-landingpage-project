@@ -1,11 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import ClearableSignalBoard from "@/components/ClearableSignalBoard";
 import CoinSearchForm from "./CoinSearchForm";
 import DashboardToast from "./DashboardToast";
+import PendingSignalSection, { rememberPlan, upsertPlan } from "./signals/pending/PendingSignalSection";
 import { apiRequest } from "@/lib/api/client";
+import { requestAnalysis } from "@/lib/signals/api";
+import { clearSignalBoardState, planToBoardSignal, rebuildBoardSignals, refreshBoardSignals } from "@/lib/signals/board";
+import { SIGNAL_FLAGS } from "@/lib/signals/flags";
+import { ANALYSIS_DECISION } from "@/lib/signals/lifecycle";
+import { normalizeAnalysisResponse, normalizeSignalPlan, planKey } from "@/lib/signals/plan";
+import { createRequestSequence, isAbortError } from "@/lib/signals/request";
+import { migrateBoardCache } from "@/lib/signals/storage";
+import { SIGNAL_FIXTURES } from "@/lib/signals/fixtures";
+import { useTradingPairs } from "@/lib/market/trading-pairs";
 
 const SIGNAL_BOARD_STORAGE_PREFIX = "dcms-dashboard-signal-board";
 const SIGNAL_FILTER_OPTIONS = [
@@ -29,7 +39,7 @@ function DashboardSignalBoardSkeleton() {
             {[0, 1, 2, 3].map((item) => (
                 <div
                     key={item}
-                    className="min-h-[420px] animate-pulse rounded-lg bg-gradient-to-br from-[#374151] to-[#111827] p-5"
+                    className="min-h-[420px] motion-safe:animate-pulse rounded-lg bg-gradient-to-br from-[#374151] to-[#111827] p-5"
                 >
                     <div className="mb-5 flex items-start justify-between gap-4">
                         <div className="space-y-3">
@@ -136,22 +146,6 @@ function upsertSignal(signals, nextSignal) {
     ];
 }
 
-function mergeSignals(primarySignals, fallbackSignals) {
-    return fallbackSignals.reduce(
-        (mergedSignals, signal) => (
-            mergedSignals.some((currentSignal) => currentSignal.symbol === signal.symbol)
-                ? mergedSignals
-                : [...mergedSignals, signal]
-        ),
-        primarySignals
-    );
-}
-
-function withoutRemovedSignals(signals, removedSymbols) {
-    const removedSet = new Set(removedSymbols);
-    return signals.filter((signal) => !removedSet.has(signal.symbol));
-}
-
 function getPersistableSignals(signals, initialSignals) {
     const initialSymbols = new Set(initialSignals.map((signal) => signal.symbol));
 
@@ -223,32 +217,32 @@ function ScamPumpCard({ recommendation }) {
                     </p>
                 </div>
                 <div className="text-right">
-                    <p className="font-chakra text-xs font-bold text-zinc-500">Price</p>
+                    <p className="font-chakra text-xs font-bold text-zinc-400">Price</p>
                     <p className="font-chakra text-sm font-bold text-white">{formatCompactUsd(recommendation.price)}</p>
                 </div>
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-2">
                 <div className="rounded-lg bg-black/20 p-3">
-                    <p className="font-chakra text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">1m Move</p>
+                    <p className="font-chakra text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">1m Move</p>
                     <p className={`mt-1 font-chakra text-sm font-bold ${recommendation.change1m >= 0 ? "text-[#B7FB5B]" : "text-red-300"}`}>
                         {formatSignedPercent(recommendation.change1m)}
                     </p>
                 </div>
                 <div className="rounded-lg bg-black/20 p-3">
-                    <p className="font-chakra text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Volume Spike</p>
+                    <p className="font-chakra text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">Volume Spike</p>
                     <p className="mt-1 font-chakra text-sm font-bold text-white">
                         {recommendation.volumeRatioLabel || `${Number(recommendation.volumeRatio || 0).toFixed(1)}x`}
                     </p>
                 </div>
                 <div className="rounded-lg bg-black/20 p-3">
-                    <p className="font-chakra text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">24h Move</p>
+                    <p className="font-chakra text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">24h Move</p>
                     <p className={`mt-1 font-chakra text-sm font-bold ${recommendation.change24h >= 0 ? "text-[#B7FB5B]" : "text-red-300"}`}>
                         {formatSignedPercent(recommendation.change24h)}
                     </p>
                 </div>
                 <div className="rounded-lg bg-black/20 p-3">
-                    <p className="font-chakra text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">24h Volume</p>
+                    <p className="font-chakra text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">24h Volume</p>
                     <p className="mt-1 font-chakra text-sm font-bold text-white">
                         {formatCompactUsd(recommendation.volume24h)}
                     </p>
@@ -279,11 +273,11 @@ function ScamPumpBoard({
         <section className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-600">Scam Pump Board</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-400">Scam Pump Board</p>
                     <h2 className="mt-1 font-nebulica text-[clamp(1.25rem,1.1rem+0.75vw,1.5rem)] font-bold text-white">
                         1m Pump Scanner
                     </h2>
-                    <p className="mt-1 font-chakra text-xs text-zinc-500">
+                    <p className="mt-1 font-chakra text-xs text-zinc-400">
                         Scan pair USDT aktif berdasarkan spike volume dan candle 1 menit.
                     </p>
                 </div>
@@ -303,13 +297,13 @@ function ScamPumpBoard({
             </div>
 
             {updatedAt && (
-                <p className="mt-3 font-chakra text-xs text-zinc-500">
+                <p className="mt-3 font-chakra text-xs text-zinc-400">
                     Updated {new Date(updatedAt).toLocaleTimeString("id-ID")} · Inspected {inspectedCount} pairs
                 </p>
             )}
 
             {error && (
-                <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 font-chakra text-sm text-red-200">
+                <div role="alert" className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 font-chakra text-sm text-red-200">
                     {error}
                 </div>
             )}
@@ -317,7 +311,7 @@ function ScamPumpBoard({
             {isAnalyzing && (
                 <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] gap-4">
                     {[0, 1, 2, 3].map((item) => (
-                        <div key={item} className="h-64 animate-pulse rounded-xl bg-white/[0.06]" />
+                        <div key={item} className="h-64 motion-safe:animate-pulse rounded-xl bg-white/[0.06]" />
                     ))}
                 </div>
             )}
@@ -331,7 +325,7 @@ function ScamPumpBoard({
             )}
 
             {!isAnalyzing && !hasResults && !error && (
-                <div className="mt-5 rounded-xl border border-dashed border-zinc-800 bg-black/20 p-5 font-chakra text-sm text-zinc-500">
+                <div className="mt-5 rounded-xl border border-dashed border-zinc-800 bg-black/20 p-5 font-chakra text-sm text-zinc-400">
                     Klik Analyze untuk menjalankan scan scam pump terbaru.
                 </div>
             )}
@@ -344,8 +338,8 @@ function SignalBoardFilters({ value, onChange, onReset }) {
         <div className="mb-4 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-3 sm:p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-600">Filter Signal</p>
-                    <p className="mt-1 font-chakra text-xs text-zinc-500">Urutkan bias atau jarak harga terhadap level signal.</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-400">Filter Signal</p>
+                    <p className="mt-1 font-chakra text-xs text-zinc-400">Urutkan bias atau jarak harga terhadap level signal.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {SIGNAL_FILTER_OPTIONS.map((option) => {
@@ -386,18 +380,32 @@ export default function DashboardSignalWorkspace({
     initialSearchKeyword = "",
     timeframe,
     updatedAt,
+    lockedSignalPlanIds = [],
     onLocked,
 }) {
-    const [, setRemovedSymbols] = useState(() => readPersistedRemovedSymbols(timeframe));
-    const [signals, setSignals] = useState(() => (
-        withoutRemovedSignals(
-            mergeSignals(readPersistedSignals(timeframe), initialSignals),
-            readPersistedRemovedSymbols(timeframe)
-        )
-    ));
+    const [removedSymbols, setRemovedSymbols] = useState(() => readPersistedRemovedSymbols(timeframe));
+    const [signals, setSignals] = useState(() => rebuildBoardSignals({
+        persistedSignals: readPersistedSignals(timeframe),
+        initialSignals,
+        removedSymbols: readPersistedRemovedSymbols(timeframe),
+    }));
+    // Menggantikan pemasangan ulang lewat `key={timeframe}`. Hanya state yang
+    // memang bergantung timeframe yang disinkronkan; tab board, filter, kata
+    // kunci pencarian, dan toast bertahan melewati pergantian.
+    const [syncedBoard, setSyncedBoard] = useState({ timeframe, updatedAt });
     const [searchKeyword, setSearchKeyword] = useState(initialSearchKeyword);
     const [searchError, setSearchError] = useState("");
     const [isSearching, setIsSearching] = useState(false);
+    const [pendingPlans, setPendingPlans] = useState(() => (
+        SIGNAL_FLAGS.pendingSignalsPreview
+            ? [SIGNAL_FIXTURES.pendingEntry, SIGNAL_FIXTURES.active, SIGNAL_FIXTURES.pendingEntryStale]
+                .map((fixture) => normalizeSignalPlan(fixture))
+            : []
+    ));
+    const [noSetups, setNoSetups] = useState([]);
+    const { pairs: tradingPairs, status: tradingPairsStatus } = useTradingPairs();
+    const searchSequenceRef = useRef(createRequestSequence());
+    const searchAbortRef = useRef(null);
     const [boardUpdatedAt, setBoardUpdatedAt] = useState(updatedAt);
     const [toasts, setToasts] = useState([]);
     const [signalFilter, setSignalFilter] = useState("all");
@@ -410,6 +418,36 @@ export default function DashboardSignalWorkspace({
     const [scamPumpCooldownUntil, setScamPumpCooldownUntil] = useState(0);
     const [scamPumpNow, setScamPumpNow] = useState(Date.now());
     const scamPumpCooldownRemaining = Math.max(0, Math.ceil((scamPumpCooldownUntil - scamPumpNow) / 1000));
+    const monitoredPlanIds = useMemo(
+        () => new Set(lockedSignalPlanIds),
+        [lockedSignalPlanIds]
+    );
+
+    // Penyesuaian state saat prop berubah, dijalankan ketika render, bukan lewat
+    // efek: board tidak pernah tampil satu frame dengan data timeframe lama.
+    if (syncedBoard.timeframe !== timeframe) {
+        const nextRemoved = readPersistedRemovedSymbols(timeframe);
+        setSyncedBoard({ timeframe, updatedAt });
+        setRemovedSymbols(nextRemoved);
+        setSignals(rebuildBoardSignals({
+            persistedSignals: readPersistedSignals(timeframe),
+            initialSignals,
+            removedSymbols: nextRemoved,
+        }));
+        setBoardUpdatedAt(updatedAt);
+        setNoSetups([]);
+        setSearchError("");
+    } else if (syncedBoard.updatedAt !== updatedAt) {
+        // Timeframe sama, data server baru: nilai kartu bawaan diganti di tempat
+        // dan kartu hasil pencarian user tetap berada di posisinya.
+        setSyncedBoard({ timeframe, updatedAt });
+        setSignals((currentSignals) => refreshBoardSignals({
+            signals: currentSignals,
+            initialSignals,
+            removedSymbols,
+        }));
+        setBoardUpdatedAt(updatedAt);
+    }
 
     useEffect(() => {
         if (scamPumpCooldownUntil <= Date.now()) return undefined;
@@ -426,6 +464,13 @@ export default function DashboardSignalWorkspace({
         return () => window.clearInterval(timer);
     }, [scamPumpCooldownUntil]);
 
+    // Cache kartu lama memakai symbol saja. Migrasi dijalankan sekali per timeframe.
+    useEffect(() => {
+        migrateBoardCache(timeframe);
+    }, [timeframe]);
+
+    useEffect(() => () => searchAbortRef.current?.abort(), []);
+
     function showToast(type, message, action) {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         setToasts((currentToasts) => [
@@ -436,6 +481,97 @@ export default function DashboardSignalWorkspace({
 
     function dismissToast(id) {
         setToasts((currentToasts) => currentToasts.filter((toast) => toast.id !== id));
+    }
+
+    function applyLegacyPayload(payload) {
+        setSignals((currentSignals) => {
+            const enrichedSignal = { ...payload.signal, conservativeGate: payload.conservativeGate ?? null };
+            const nextSignals = upsertSignal(currentSignals, enrichedSignal);
+            writePersistedSignals(timeframe, getPersistableSignals(nextSignals, initialSignals));
+
+            return nextSignals;
+        });
+        setRemovedSymbols((currentSymbols) => {
+            const nextSymbols = currentSymbols.filter((symbol) => symbol !== payload.signal.symbol);
+            writePersistedRemovedSymbols(timeframe, nextSymbols);
+
+            return nextSymbols;
+        });
+        setBoardUpdatedAt(payload.updatedAt || new Date().toISOString());
+        showToast("success", `${payload.signal.base} berhasil ditambahkan ke Signal Board.`);
+    }
+
+    function applyAnalysis(analysis, keyword) {
+        if (analysis.isContractIssue) {
+            const message = "Hasil analisis tidak sesuai kontrak API. Laporkan ke tim backend.";
+            setSearchError(message);
+            showToast("error", message);
+            return;
+        }
+
+        // Backend lama tidak menerbitkan rencana pending; hasilnya tetap masuk
+        // Signal Board seperti sebelumnya.
+        if (analysis.isLegacy && analysis.legacyPayload?.signal) {
+            applyLegacyPayload(analysis.legacyPayload);
+            setSearchKeyword("");
+            return;
+        }
+
+        if (analysis.decision === ANALYSIS_DECISION.PUBLISHED && analysis.plan) {
+            setPendingPlans((currentPlans) => upsertPlan(currentPlans, analysis.plan));
+            setNoSetups((current) => current.filter((entry) => entry.symbol !== analysis.plan.symbol));
+            rememberPlan(timeframe, analysis.plan);
+            showToast("success", `${analysis.plan.base} menunggu entry pada rencana baru.`);
+            setSearchKeyword("");
+            return;
+        }
+
+        const entry = {
+            symbol: keyword,
+            timeframe,
+            reasons: analysis.reasons,
+            reasonSummary: analysis.reasonSummary,
+            generatedAt: analysis.generatedAt,
+            requestedAt: new Date().toISOString(),
+        };
+        setNoSetups((current) => [entry, ...current.filter((item) => item.symbol !== keyword)]);
+        showToast("info", `${keyword}: belum ada setup yang memenuhi kriteria.`);
+    }
+
+    async function runAnalysis({ symbol, action }) {
+        searchAbortRef.current?.abort();
+        const controller = new AbortController();
+        searchAbortRef.current = controller;
+        const token = searchSequenceRef.current.next();
+
+        setIsSearching(true);
+        setSearchError("");
+
+        try {
+            const analysis = SIGNAL_FLAGS.pendingSignals
+                ? await requestAnalysis({ symbol, timeframe, action, signal: controller.signal })
+                : normalizeAnalysisResponse(
+                    await apiRequest(`/market/signals/${encodeURIComponent(symbol)}`, {
+                        cache: "no-store",
+                        query: { timeframe, action },
+                        signal: controller.signal,
+                    }),
+                    { timeframe }
+                );
+
+            // Response pencarian lama tidak boleh menimpa pencarian terbaru.
+            if (!searchSequenceRef.current.isCurrent(token)) return;
+
+            applyAnalysis(analysis, symbol);
+        } catch (error) {
+            if (isAbortError(error, controller.signal) || !searchSequenceRef.current.isCurrent(token)) return;
+
+            const message = error.message || `Symbol ${symbol} tidak ditemukan.`;
+            setSearchError(message);
+            showToast("error", message);
+        } finally {
+            if (searchSequenceRef.current.isCurrent(token)) setIsSearching(false);
+        }
     }
 
     async function handleSearchSubmit(event) {
@@ -449,37 +585,30 @@ export default function DashboardSignalWorkspace({
             return;
         }
 
-        setIsSearching(true);
-        setSearchError("");
+        await runAnalysis({ symbol: activeKeyword, action: "SEARCH" });
+    }
 
-        try {
-            const payload = await apiRequest(`/market/signals/${encodeURIComponent(activeKeyword)}`, {
-                cache: "no-store",
-                query: { timeframe },
-            });
+    function handlePendingUpdate(nextPlan) {
+        setPendingPlans((currentPlans) => upsertPlan(currentPlans, nextPlan));
+    }
 
-            setSignals((currentSignals) => {
-                const enrichedSignal = { ...payload.signal, conservativeGate: payload.conservativeGate ?? null };
-                const nextSignals = upsertSignal(currentSignals, enrichedSignal);
-                writePersistedSignals(timeframe, getPersistableSignals(nextSignals, initialSignals));
+    // Memindahkan rencana ke Signal Board memakai data yang sudah ada di kartu,
+    // jadi tidak ada request tambahan ke backend.
+    function handleAddPlanToBoard(plan) {
+        const boardSignal = planToBoardSignal(plan);
 
-                return nextSignals;
-            });
-            setRemovedSymbols((currentSymbols) => {
-                const nextSymbols = currentSymbols.filter((symbol) => symbol !== payload.signal.symbol);
-                writePersistedRemovedSymbols(timeframe, nextSymbols);
-
-                return nextSymbols;
-            });
-            setBoardUpdatedAt(payload.updatedAt || new Date().toISOString());
-            showToast("success", `${payload.signal.base} berhasil ditambahkan ke Signal Board.`);
-        } catch (error) {
-            const message = error.message || `Symbol ${activeKeyword} tidak ditemukan.`;
-            setSearchError(message);
-            showToast("error", message);
-        } finally {
-            setIsSearching(false);
+        if (!boardSignal) {
+            showToast("error", `${plan.base || plan.symbol} belum bisa ditambahkan: rencananya tidak punya symbol.`);
+            return false;
         }
+
+        handleSignalUpdate(boardSignal);
+        showToast("success", `${boardSignal.base} ditambahkan ke Signal Board.`);
+        return true;
+    }
+
+    function handlePendingRemove(plan) {
+        setPendingPlans((currentPlans) => currentPlans.filter((item) => planKey(item) !== planKey(plan)));
     }
 
     function handleSignalUpdate(nextSignal, nextUpdatedAt) {
@@ -538,6 +667,45 @@ export default function DashboardSignalWorkspace({
         });
     }
 
+    function handleClearSignals() {
+        // Menghapus seluruh board tidak bisa dibatalkan lewat data server, jadi
+        // keadaan sebelumnya disimpan dan ditawarkan lewat aksi Undo di toast.
+        const previousBoard = {
+            signals,
+            removedSymbols,
+            searchKeyword,
+            signalFilter,
+        };
+        const clearedBoard = clearSignalBoardState({
+            signals,
+            initialSignals,
+            removedSymbols,
+        });
+
+        setSignals(clearedBoard.signals);
+        writePersistedSignals(timeframe, clearedBoard.persistedSignals);
+        setRemovedSymbols(clearedBoard.removedSymbols);
+        writePersistedRemovedSymbols(timeframe, clearedBoard.removedSymbols);
+        setSearchKeyword("");
+        setSearchError("");
+        setSignalFilter("all");
+        setBoardUpdatedAt(new Date().toISOString());
+        showToast("success", "Semua signal di Signal Board telah dihapus.", {
+            label: "Undo",
+            onClick: () => restoreClearedSignals(previousBoard),
+        });
+    }
+
+    function restoreClearedSignals(previousBoard) {
+        setSignals(previousBoard.signals);
+        writePersistedSignals(timeframe, getPersistableSignals(previousBoard.signals, initialSignals));
+        setRemovedSymbols(previousBoard.removedSymbols);
+        writePersistedRemovedSymbols(timeframe, previousBoard.removedSymbols);
+        setSearchKeyword(previousBoard.searchKeyword);
+        setSignalFilter(previousBoard.signalFilter);
+        setBoardUpdatedAt(new Date().toISOString());
+    }
+
     async function handleScamPumpAnalyze() {
         const remaining = Math.max(0, Math.ceil((scamPumpCooldownUntil - Date.now()) / 1000));
 
@@ -592,17 +760,33 @@ export default function DashboardSignalWorkspace({
                                 setSearchKeyword("");
                                 setSearchError("");
                             }}
+                            pairs={tradingPairs}
+                            pairsStatus={tradingPairsStatus}
                         />
                         {searchError && (
-                            <p className="mt-3 text-sm text-red-300">
+                            <p role="alert" className="mt-3 text-sm text-red-300">
                                 {searchError}
                             </p>
                         )}
                     </section>
 
+                    <PendingSignalSection
+                        timeframe={timeframe}
+                        plans={pendingPlans}
+                        noSetups={noSetups}
+                        monitoredPlanIds={monitoredPlanIds}
+                        onPlanUpdate={handlePendingUpdate}
+                        onPlanRemove={handlePendingRemove}
+                        onNoSetupDismiss={(entry) => setNoSetups((current) => current.filter((item) => item !== entry))}
+                        onAddToBoard={handleAddPlanToBoard}
+                        onLocked={onLocked}
+                        onToast={showToast}
+                    />
+
                     <ClearableSignalBoard
                         updatedAt={new Date(boardUpdatedAt).toLocaleTimeString("id-ID")}
                         signalCount={signals.length}
+                        onClear={handleClearSignals}
                         controls={(
                             <SignalBoardFilters
                                 value={signalFilter}
@@ -613,7 +797,6 @@ export default function DashboardSignalWorkspace({
                     >
                         <DashboardSignalBoard
                             signals={signals}
-                            searchKeyword={searchKeyword}
                             filterMode={signalFilter}
                             onSignalUpdate={handleSignalUpdate}
                             onSignalDelete={handleSignalDelete}
