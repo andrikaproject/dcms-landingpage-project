@@ -1,157 +1,196 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import gsap from "gsap";
+import { useCallback, useEffect, useRef, useState } from "react";
+import AuthShell from "@/components/auth/AuthShell";
+import {
+    AuthDialog,
+    AuthField,
+    AuthPasswordField,
+    AuthSubmitButton,
+    AuthSuccessOverlay,
+    AuthTabs,
+} from "@/components/auth/AuthControls";
 import { apiRequest } from "@/lib/api/client";
+import { getEmailError } from "@/lib/auth-form";
+
+const REDIRECT_DELAY_MS = 3000;
+const MIN_PASSWORD_LENGTH = 8;
+// Sama dengan isValidUidFormat di lib/bitunix.js. File itu memakai modul crypto
+// milik Node, jadi aturannya disalin di sini alih-alih diimpor ke bundle client.
+const UID_PATTERN = /^[0-9]{5,20}$/;
+
+const EMPTY_FORM = { username: "", uid: "", email: "", password: "" };
+
+// Aturan dicek sesuai urutan field, jadi pesan dan fokus selalu jatuh di field
+// paling atas yang belum benar.
+function findFirstInvalidField(form) {
+    const uid = form.uid.trim();
+
+    if (!form.username.trim()) return { field: "username", message: "Username harus diisi." };
+    if (!uid) return { field: "uid", message: "UUID Bitunix harus diisi." };
+    if (!UID_PATTERN.test(uid)) return { field: "uid", message: "UUID Bitunix harus berupa angka 5 sampai 20 digit." };
+    const emailError = getEmailError(form.email);
+    if (emailError) return { field: "email", message: emailError };
+    if (!form.password) return { field: "password", message: "Password harus diisi." };
+    if (form.password.length < MIN_PASSWORD_LENGTH) {
+        return { field: "password", message: `Password minimal ${MIN_PASSWORD_LENGTH} karakter.` };
+    }
+    return null;
+}
 
 export default function RegisterPage() {
     const router = useRouter();
+    const [form, setForm] = useState(EMPTY_FORM);
     const [error, setError] = useState("");
-    const [success, setSuccess] = useState("");
-    const [isExecuting, setIsExecuting] = useState(false);
+    const [popupMessage, setPopupMessage] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const usernameRef = useRef(null);
+    const uidRef = useRef(null);
+    const emailRef = useRef(null);
+    const passwordRef = useRef(null);
 
-    useEffect(() => {
-        gsap.from(".register-card", {
-            y: 20,
-            opacity: 0,
-            duration: 0.8,
-            ease: "power3.out",
-        });
+    const closePopup = useCallback(() => {
+        setPopupMessage("");
+        usernameRef.current?.focus();
     }, []);
 
-    async function handleSubmit(e) {
-        e.preventDefault();
-        setError("");
-        setSuccess("");
+    useEffect(() => {
+        if (!successMessage) return undefined;
 
-        const formData = new FormData(e.target);
-        setIsExecuting(true);
+        const timer = window.setTimeout(() => router.push("/login"), REDIRECT_DELAY_MS);
+        return () => window.clearTimeout(timer);
+    }, [successMessage, router]);
+
+    const updateField = (name) => (event) => {
+        const { value } = event.target;
+        setForm((current) => ({ ...current, [name]: value }));
+        if (error) setError("");
+    };
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        setError("");
+
+        const invalid = findFirstInvalidField(form);
+        if (invalid) {
+            const refs = { username: usernameRef, uid: uidRef, email: emailRef, password: passwordRef };
+            setError(invalid.message);
+            refs[invalid.field].current?.focus();
+            return;
+        }
+
+        setIsLoading(true);
+
         try {
             const result = await apiRequest("/auth/bitunix/register", {
                 method: "POST",
                 auth: false,
                 retryAuth: false,
                 body: {
-                    name: formData.get("name"),
-                    uid: formData.get("uuidBitunix"),
-                    email: formData.get("email"),
-                    password: formData.get("password"),
+                    name: form.username.trim(),
+                    uid: form.uid.trim(),
+                    email: form.email.trim(),
+                    password: form.password,
                 },
             });
-            setSuccess(result.message || "Registrasi berhasil. Silakan login.");
-            setTimeout(() => {
-                router.push("/login");
-            }, 3000);
+            // Tombol tetap terkunci sampai redirect supaya akun tidak terdaftar dua kali.
+            setSuccessMessage(result?.message || "Registrasi berhasil. Silakan login.");
         } catch (requestError) {
-            setError(requestError.message || "Registrasi gagal.");
-        } finally {
-            setIsExecuting(false);
+            setPopupMessage(
+                requestError.message ||
+                "Terjadi kendala saat registrasi. Silakan coba beberapa saat lagi."
+            );
+            setIsLoading(false);
         }
-    }
+    };
 
     return (
-        <div className="min-h-screen bg-black flex items-center justify-center p-6 relative overflow-hidden">
-            {/* Background pattern similar to landing page */}
-            <div className="absolute inset-0 opacity-20 pointer-events-none">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-transparent"></div>
-            </div>
+        <>
+            <AuthShell>
+                <div className="space-y-6">
+                    <div className="mx-auto w-full max-w-[360px] space-y-2 text-center">
+                        <h1 className="text-xl font-bold leading-7 text-white">Sign Up to Dashboard DCMS</h1>
+                        <p className="text-sm font-normal leading-5 text-white">Enter your details to sign up</p>
+                        <AuthTabs active="signup" />
+                    </div>
 
-            <div className="register-card w-full max-w-md relative z-10">
-                <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 shadow-2xl">
-                    <div className="flex flex-col items-center mb-10">
-                        <Image
-                            src="/images/logo-dcms.svg"
-                            alt="DCMS Logo"
-                            width={64}
-                            height={64}
-                            className="mb-4"
+                    <form onSubmit={handleSubmit} noValidate className="space-y-2">
+                        <AuthField
+                            id="registerUsername"
+                            name="username"
+                            label="Username"
+                            type="text"
+                            autoComplete="username"
+                            placeholder="panjoel001 or Budi Santoso"
+                            aria-describedby="registerError"
+                            inputRef={usernameRef}
+                            value={form.username}
+                            onChange={updateField("username")}
                         />
-                        <h1 className="font-nebulica text-3xl font-bold text-white tracking-widest uppercase">DCMS</h1>
-                        <p className="font-chakra text-zinc-500 mt-2 text-sm">Registrasi Member Baru</p>
-                    </div>
 
-                    {error && (
-                        <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-4 rounded-xl text-sm mb-6 flex items-center gap-3">
-                            <span className="text-lg">⚠️</span>
+                        <AuthField
+                            id="registerUid"
+                            name="uid"
+                            label="UUID Bitunix"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            placeholder="6710xxxxxx"
+                            aria-describedby="registerError"
+                            inputRef={uidRef}
+                            value={form.uid}
+                            onChange={updateField("uid")}
+                        />
+
+                        <AuthField
+                            id="registerEmail"
+                            name="email"
+                            label="Email"
+                            type="email"
+                            autoComplete="email"
+                            placeholder="youremail@gmail.com"
+                            aria-describedby="registerError"
+                            inputRef={emailRef}
+                            value={form.email}
+                            onChange={updateField("email")}
+                        />
+
+                        <AuthPasswordField
+                            id="registerPassword"
+                            name="password"
+                            label="Password"
+                            autoComplete="new-password"
+                            placeholder="************"
+                            aria-describedby="registerError"
+                            inputRef={passwordRef}
+                            value={form.password}
+                            onChange={updateField("password")}
+                        />
+
+                        <p id="registerError" role="alert" className="min-h-5 text-sm font-bold leading-5 text-[#FF8F8F]">
                             {error}
-                        </div>
-                    )}
-
-                    {success && (
-                        <div className="bg-green-500/10 border border-green-500/50 text-green-500 p-4 rounded-xl text-sm mb-6 flex items-center gap-3">
-                            <span className="text-lg">✅</span>
-                            {success}
-                        </div>
-                    )}
-
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="space-y-1">
-                            <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider ml-1">Full Name</label>
-                            <input
-                                name="name"
-                                type="text"
-                                required
-                                placeholder="Masukkan nama lengkap"
-                                className="w-full bg-zinc-800/50 border border-white/5 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
-                            />
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider ml-1">UUID Bitunix</label>
-                            <input
-                                name="uuidBitunix"
-                                type="text"
-                                required
-                                placeholder="Contoh: 12345678"
-                                className="w-full bg-zinc-800/50 border border-white/5 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
-                            />
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider ml-1">Email</label>
-                            <input
-                                name="email"
-                                type="email"
-                                required
-                                placeholder="your@email.com"
-                                className="w-full bg-zinc-800/50 border border-white/5 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
-                            />
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider ml-1">Password</label>
-                            <input
-                                name="password"
-                                type="password"
-                                required
-                                minLength={8}
-                                placeholder="••••••••"
-                                className="w-full bg-zinc-800/50 border border-white/5 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={isExecuting}
-                            className="w-full bg-[#B7FB5B] text-black py-3 rounded-xl font-bold mt-6 hover:bg-[#a8ec4c] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(183,251,91,0.2)]"
-                        >
-                            {isExecuting ? "Sabar ya..." : "Daftar Sekarang"}
-                        </button>
-                    </form>
-
-                    <div className="mt-8 text-center">
-                        <p className="text-zinc-500 text-sm">
-                            Sudah punya akun?{" "}
-                            <Link href="/login" className="text-blue-500 hover:text-blue-400 font-medium ml-1">
-                                Login di sini
-                            </Link>
                         </p>
-                    </div>
+
+                        <div className="pt-4">
+                            <AuthSubmitButton disabled={isLoading} isBusy={isLoading} busyLabel="Mendaftarkan akun...">
+                                Daftar Sekarang
+                            </AuthSubmitButton>
+                        </div>
+                    </form>
                 </div>
-            </div>
-        </div>
+            </AuthShell>
+
+            {popupMessage && <AuthDialog title="Registrasi gagal" message={popupMessage} onClose={closePopup} />}
+
+            {successMessage && (
+                <AuthSuccessOverlay
+                    title="Registrasi berhasil"
+                    message={successMessage}
+                    note="Mengarahkan ke halaman login..."
+                />
+            )}
+        </>
     );
 }

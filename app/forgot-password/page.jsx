@@ -1,106 +1,135 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useRef, useState } from "react";
+import AuthShell from "@/components/auth/AuthShell";
+import { AuthDialog, AuthField, AuthLink, AuthSubmitButton } from "@/components/auth/AuthControls";
 import { apiRequest } from "@/lib/api/client";
+import { getEmailError } from "@/lib/auth-form";
 
 export default function ForgotPasswordPage() {
+    const router = useRouter();
     const [email, setEmail] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState("");
-    const [debugResetUrl, setDebugResetUrl] = useState("");
     const [error, setError] = useState("");
+    const [dialog, setDialog] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const emailRef = useRef(null);
 
-    async function handleSubmit(event) {
+    const closeDialog = useCallback(() => {
+        setDialog(null);
+        emailRef.current?.focus();
+    }, []);
+
+    const handleSubmit = async (event) => {
         event.preventDefault();
-        setLoading(true);
-        setMessage("");
-        setDebugResetUrl("");
         setError("");
+
+        const emailError = getEmailError(email);
+        if (emailError) {
+            setError(emailError);
+            emailRef.current?.focus();
+            return;
+        }
+
+        setIsLoading(true);
 
         try {
             const result = await apiRequest("/auth/password-reset/request", {
                 method: "POST",
                 auth: false,
                 retryAuth: false,
-                body: { email },
+                body: { email: email.trim() },
             });
-            setMessage(result.message);
-            setDebugResetUrl(result.debugResetUrl || "");
+            setDialog({
+                type: "sent",
+                message: result?.message || "Cek email kamu untuk link membuat password baru.",
+                debugResetUrl: result?.debugResetUrl || "",
+            });
         } catch (requestError) {
-            setError(requestError.message || "Tidak bisa mengirim link reset password.");
+            setDialog({
+                type: "failed",
+                message:
+                    requestError.message ||
+                    "Tidak bisa mengirim link reset password. Silakan coba beberapa saat lagi.",
+            });
         } finally {
-            setLoading(false);
+            setIsLoading(false);
         }
-    }
+    };
 
     return (
-        <main className="grid min-h-dvh place-items-center bg-[linear-gradient(180deg,#23252a_0%,#111315_100%)] px-4 py-8 font-nebulica text-white">
-            <section className="w-full max-w-md rounded-2xl border border-white/10 bg-[#111315]/80 p-6 shadow-2xl sm:p-8">
-                <div className="mb-8 flex flex-col items-center text-center">
-                    <div className="mb-4 grid size-16 place-items-center rounded-lg border border-[#bdef7a] bg-[#b7fb5b] p-3">
-                        <Image src="/images/logo-dcms.svg" alt="DCMS" width={40} height={40} className="invert" />
+        <>
+            <AuthShell>
+                <div className="space-y-6">
+                    <div className="mx-auto w-full max-w-[333px] space-y-2 text-center">
+                        <h1 className="text-xl font-bold leading-7 text-white">Lupa Password</h1>
+                        <p className="text-sm font-normal leading-5 text-white">
+                            Masukkan email yang terdaftar. Kami akan kirim link untuk membuat password baru.
+                        </p>
                     </div>
-                    <h1 className="text-2xl font-bold">Lupa Password</h1>
-                    <p className="mt-2 text-sm font-medium leading-6 text-zinc-400">
-                        Masukkan email akun DCMS kamu. Kami akan kirim link untuk membuat password baru.
-                    </p>
-                </div>
 
-                {message && (
-                    <div className="mb-5 rounded-lg border border-[#B7FB5B]/30 bg-[#B7FB5B]/10 p-3 text-sm font-medium text-[#d7ffad]">
-                        {message}
-                        {debugResetUrl && (
-                            <Link
-                                href={debugResetUrl}
-                                className="mt-3 block break-all rounded-md border border-[#B7FB5B]/30 bg-black/20 p-2 font-bold text-[#B7FB5B] underline underline-offset-2"
-                            >
-                                Buka link reset dev
-                            </Link>
-                        )}
-                    </div>
-                )}
-
-                {error && (
-                    <div className="mb-5 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm font-medium text-red-300">
-                        {error}
-                    </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-1.5">
-                        <label htmlFor="email" className="text-sm font-bold text-white">
-                            Email
-                        </label>
-                        <input
-                            id="email"
+                    <form onSubmit={handleSubmit} noValidate className="space-y-2">
+                        <AuthField
+                            id="forgotEmail"
+                            name="email"
+                            label="Email"
                             type="email"
                             autoComplete="email"
-                            required
+                            placeholder="youremail@gmail.com"
+                            aria-describedby="forgotError"
+                            inputRef={emailRef}
                             value={email}
-                            onChange={(event) => setEmail(event.target.value)}
-                            placeholder="your@email.com"
-                            className="h-12 w-full rounded-lg border border-[#d5d7da] bg-white px-3 text-base font-medium text-[#181d27] outline-none transition placeholder:text-[#717680] focus:border-[#b7fb5b] focus:shadow-[0_0_0_4px_rgba(183,251,91,0.18)]"
+                            onChange={(event) => {
+                                setEmail(event.target.value);
+                                if (error) setError("");
+                            }}
                         />
-                    </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="h-12 w-full rounded-lg bg-[#B7FB5B] px-4 text-sm font-bold text-[#181d27] transition hover:bg-[#a8ec4c] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                        {loading ? "Mengirim..." : "Kirim Link Reset"}
-                    </button>
-                </form>
+                        {/* Export Figma tidak membawa warna per bagian teks ini, jadi gayanya
+                            mengikuti baris "Forgot Password?" di login: tautan hijau bold. */}
+                        <p className="pt-1 text-right text-sm font-medium leading-5 text-[#94A3B8]">
+                            Ingat Passwordnya? <AuthLink href="/login">LOGIN</AuthLink>
+                        </p>
 
-                <p className="mt-6 text-center text-sm font-medium text-zinc-400">
-                    Ingat password?{" "}
-                    <Link href="/login" className="font-bold text-[#B7FB5B] underline underline-offset-2">
-                        Login
-                    </Link>
-                </p>
-            </section>
-        </main>
+                        <p id="forgotError" role="alert" className="min-h-5 text-sm font-bold leading-5 text-[#FF8F8F]">
+                            {error}
+                        </p>
+
+                        <div className="pt-4">
+                            <AuthSubmitButton disabled={isLoading} isBusy={isLoading} busyLabel="Mengirim link...">
+                                Kirim Link Reset
+                            </AuthSubmitButton>
+                        </div>
+                    </form>
+                </div>
+            </AuthShell>
+
+            {dialog?.type === "failed" && (
+                <AuthDialog title="Link reset gagal dikirim" message={dialog.message} onClose={closeDialog} />
+            )}
+
+            {/* Sukses tidak redirect: pengguna mungkin salah ketik email dan perlu kirim ulang. */}
+            {dialog?.type === "sent" && (
+                <AuthDialog
+                    title="Link reset terkirim"
+                    message={dialog.message}
+                    actionLabel="Kembali ke Login"
+                    onAction={() => router.push("/login")}
+                    onClose={closeDialog}
+                >
+                    {/* debugResetUrl hanya dikirim backend di development, supaya alur reset
+                        bisa dicoba tanpa membuka inbox. */}
+                    {dialog.debugResetUrl && (
+                        <Link
+                            href={dialog.debugResetUrl}
+                            className="mt-4 block break-all rounded-lg border border-[#334155] p-3 text-sm font-bold leading-5 text-[#B7FB5B] underline-offset-2 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B7FB5B]"
+                        >
+                            Buka link reset (development)
+                        </Link>
+                    )}
+                </AuthDialog>
+            )}
+        </>
     );
 }
