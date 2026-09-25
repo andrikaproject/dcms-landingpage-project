@@ -6,6 +6,7 @@ import {
     monogramFor,
     normalizeQuery,
     readCachedPairs,
+    usableTradingPairs,
     writeCachedPairs,
 } from "../../lib/market/trading-pairs-core.js";
 
@@ -39,6 +40,18 @@ test("query kosong tidak menampilkan saran dan limit dihormati", () => {
     assert.deepEqual(filterTradingPairs(null, "BTC"), []);
 });
 
+test("respons array API menampilkan hanya pair USDT yang bisa dianalisis", () => {
+    const response = [
+        { symbol: "BTCUSDT", base: "BTC", quote: "USDT", symbolStatus: "OPEN", isApiSupported: true },
+        { symbol: "NEWUSDT", base: "NEW", quote: "USDT", symbolStatus: "PREVIEW", isApiSupported: true },
+        { symbol: "XAUUSDT", base: "XAU", quote: "USDT", symbolStatus: "OPEN", isApiSupported: false },
+        { symbol: "ETHUSDC", base: "ETH", quote: "USDC", symbolStatus: "OPEN", isApiSupported: true },
+    ];
+    assert.deepEqual(usableTradingPairs(response).map((pair) => pair.symbol), ["BTCUSDT"]);
+    assert.deepEqual(usableTradingPairs({ items: pairs }).map((pair) => pair.symbol), pairs.map((pair) => pair.symbol));
+    assert.throws(() => usableTradingPairs({ count: 5 }), /Format daftar coin/);
+});
+
 test("monogram konsisten untuk base yang sama dan memakai maksimal tiga huruf", () => {
     assert.deepEqual(monogramFor("BTC"), monogramFor("btc"));
     assert.equal(monogramFor("BTC").initials, "BTC");
@@ -59,6 +72,10 @@ test("cache browser kedaluwarsa setelah TTL dan menolak isi yang rusak", () => {
     assert.equal(writeCachedPairs(pairs, { storage, now }), true);
     assert.deepEqual(readCachedPairs({ storage, now: now + 1000 }).items, pairs);
     assert.equal(readCachedPairs({ storage, now: now + 25 * 60 * 60 * 1000 }), null);
+
+    storage.setItem(TRADING_PAIRS_CACHE_KEY, JSON.stringify({ items: [], fetchedAt: now }));
+    assert.equal(readCachedPairs({ storage, now }), null);
+    assert.equal(writeCachedPairs([], { storage, now }), false);
 
     storage.setItem(TRADING_PAIRS_CACHE_KEY, "{");
     assert.equal(readCachedPairs({ storage, now }), null);
