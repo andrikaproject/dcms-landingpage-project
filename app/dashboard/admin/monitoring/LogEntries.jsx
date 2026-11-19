@@ -47,7 +47,7 @@ function EntryRow({ entry }) {
     const [expanded, setExpanded] = useState(false);
     const detailId = useId();
     return <Fragment>
-        <tr className="mb-3 grid grid-cols-2 rounded-xl border border-zinc-800 bg-zinc-900/30 p-2 md:mb-0 md:table-row md:rounded-none md:border-x-0 md:border-t-0 md:p-0">
+        <tr className="mb-3 grid grid-cols-2 rounded-xl border border-zinc-800 bg-zinc-900/30 p-2 md:mb-0 md:table-row md:rounded-none md:border-x-0 md:border-t-0 md:p-0 md:transition-colors md:duration-150 md:hover:bg-white/[0.025]">
             <td className={cell}><span className="mr-2 text-xs text-zinc-500 md:hidden">Waktu</span><time dateTime={entry.createdAt}>{formatTime(entry.createdAt)}</time></td>
             <td className={cell}><span className={`inline-block rounded-full border px-2 py-1 text-xs ${levelClass(entry.level)}`}>{entry.level}</span></td>
             <td className={cell}>{entry.kind === "ERROR" ? <span className={`inline-block rounded-full border px-2 py-1 text-xs ${impactClass(entry.impact)}`}>{entry.impact || entry.severity || "—"}</span> : <span className="text-zinc-500">—</span>}</td>

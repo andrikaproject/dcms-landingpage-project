@@ -77,7 +77,7 @@ export default function MarketAnalysisControls({
                         </div>
                         <button
                             type="submit"
-                            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#B7FB5B] px-3.5 py-2.5 text-sm font-semibold text-[#0b0f17] transition duration-300 hover:-translate-y-0.5 hover:bg-[#c4ff78] active:translate-y-0 active:scale-[0.98]"
+                            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#B7FB5B] px-3.5 py-2.5 text-sm font-semibold text-[#0b0f17] transition duration-300 hover:bg-[#c4ff78] active:translate-y-0 active:scale-[0.97]"
                         >
                             Analyze
                         </button>
@@ -101,7 +101,7 @@ export default function MarketAnalysisControls({
                                     type="button"
                                     aria-pressed={active}
                                     onClick={() => onBasisChange(option.value)}
-                                        className={`rounded-md px-3 py-1.5 text-sm font-medium transition duration-300 active:scale-[0.98] ${
+                                        className={`rounded-md px-3 py-1.5 text-sm font-medium transition duration-300 active:scale-[0.97] ${
                                         active
                                             ? "bg-[#B7FB5B] text-[#0b0f17]"
                                             : "text-gray-400 hover:text-gray-200"
@@ -130,7 +130,7 @@ export default function MarketAnalysisControls({
                                     aria-pressed={active}
                                     disabled={!sessionActive}
                                     onClick={() => onSessionChange(item.value)}
-                                    className={`rounded-md border px-3 py-1.5 text-xs font-medium transition duration-300 active:scale-[0.98] disabled:cursor-not-allowed ${
+                                    className={`rounded-md border px-3 py-1.5 text-xs font-medium transition duration-300 active:scale-[0.97] disabled:cursor-not-allowed ${
                                         active
                                             ? "border-[#B7FB5B] bg-[#B7FB5B]/10 text-[#B7FB5B] underline underline-offset-4"
                                             : "border-white/10 text-gray-400 hover:text-gray-200"
@@ -147,7 +147,7 @@ export default function MarketAnalysisControls({
                         onClick={onRefresh}
                         disabled={refreshing}
                         aria-label="Refresh harga market"
-                        className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-sm font-medium text-gray-300 transition duration-300 hover:-translate-y-0.5 hover:border-[#B7FB5B]/70 hover:text-[#B7FB5B] active:translate-y-0 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-sm font-medium text-gray-300 transition duration-300 hover:border-[#B7FB5B]/70 hover:text-[#B7FB5B] active:translate-y-0 active:scale-[0.97] disabled:cursor-wait disabled:opacity-60"
                     >
                         <ArrowClockwise size={16} weight="regular" className={refreshing ? "animate-spin" : ""} aria-hidden="true" />
                         {refreshing ? "Updating" : "Refresh"}

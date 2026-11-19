@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 const toastStyles = {
     success: "border-[#B7FB5B]/30 bg-[#B7FB5B]/15 text-[#D9FF9A]",
     error: "border-red-500/30 bg-red-500/15 text-red-100",
+    info: "border-sky-400/30 bg-sky-400/10 text-sky-100",
 };
 const TOAST_AUTO_DISMISS_MS = 10_000;
 const SWIPE_DISMISS_THRESHOLD = 96;
@@ -34,17 +35,20 @@ function DashboardToastItem({ toast, onDismiss }) {
     const [isDragging, setIsDragging] = useState(false);
     // Toast yang membawa aksi (mis. Undo) atau pesan gagal bertahan sampai
     // ditutup; hanya konfirmasi biasa yang hilang sendiri.
-    const autoDismiss = toast.type !== "error" && !toast.action;
+    // `autoDismissMs` dipakai untuk aksi yang memang hanya berlaku sebentar,
+    // misalnya Batalkan lock sinyal.
+    const autoDismissMs = toast.autoDismissMs ?? (toast.type !== "error" && !toast.action ? TOAST_AUTO_DISMISS_MS : null);
+    const autoDismiss = Boolean(autoDismissMs);
 
     useEffect(() => {
         if (!autoDismiss) return undefined;
 
         const timer = window.setTimeout(() => {
             onDismiss(toast.id);
-        }, TOAST_AUTO_DISMISS_MS);
+        }, autoDismissMs);
 
         return () => window.clearTimeout(timer);
-    }, [autoDismiss, onDismiss, toast.id]);
+    }, [autoDismiss, autoDismissMs, onDismiss, toast.id]);
 
     function handleAction() {
         toast.action?.onClick?.();
@@ -94,7 +98,7 @@ function DashboardToastItem({ toast, onDismiss }) {
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerCancel}
-            className={`pointer-events-auto relative flex w-full touch-pan-y select-none items-center justify-between gap-3 overflow-hidden rounded-xl border px-4 py-3 font-chakra text-sm font-semibold shadow-2xl backdrop-blur transition-[opacity,transform] ${isDragging ? "" : "duration-200 ease-out"} ${toastStyles[toast.type] || toastStyles.success}`}
+            className={`pointer-events-auto relative flex w-full touch-pan-y select-none items-center justify-between gap-3 overflow-hidden rounded-xl border px-4 py-3 font-chakra text-sm font-semibold shadow-[0_1px_2px_0_rgb(0_0_0/0.5),0_4px_8px_-4px_rgb(0_0_0/0.5)] backdrop-blur transition-[opacity,transform] ${isDragging ? "" : "duration-200 ease-out"} ${toastStyles[toast.type] || toastStyles.success}`}
             style={{
                 transform: `translateX(${dragOffset}px)`,
                 opacity: Math.max(0.35, 1 - Math.abs(dragOffset) / 260),
@@ -111,6 +115,19 @@ function DashboardToastItem({ toast, onDismiss }) {
                     {toast.action.label}
                 </button>
             )}
+            {toast.secondaryAction && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        toast.secondaryAction.onClick?.();
+                        onDismiss(toast.id);
+                    }}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold underline-offset-4 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
+                >
+                    {toast.secondaryAction.label}
+                </button>
+            )}
             <button
                 type="button"
                 onClick={() => onDismiss(toast.id)}
@@ -123,6 +140,7 @@ function DashboardToastItem({ toast, onDismiss }) {
             {autoDismiss && (
                 <span
                     className="absolute bottom-0 left-0 h-1 w-full origin-left bg-current/70 motion-safe:animate-[toast-progress_10s_linear_forwards]"
+                    style={{ animationDuration: `${autoDismissMs}ms` }}
                     aria-hidden="true"
                 />
             )}

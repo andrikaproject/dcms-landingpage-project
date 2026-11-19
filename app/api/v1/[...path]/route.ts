@@ -1,4 +1,7 @@
-const API_ORIGIN = "https://dcms-api.my.id";
+import { resolveApiOrigin } from "@/lib/api/proxy-origin";
+
+// Server-only: nilai ini tidak pernah dikirim ke browser.
+const API_ORIGIN = resolveApiOrigin(process.env.API_UPSTREAM_ORIGIN, process.env.NODE_ENV);
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 

@@ -10,7 +10,7 @@ export default function AdminApiDocumentationPage() {
         <AuthGuard admin>
             <main className="grid min-h-dvh place-items-center bg-black p-6 font-chakra text-white">
                 <section className="w-full max-w-3xl rounded-2xl border border-zinc-800 bg-zinc-950 p-6 sm:p-10">
-                    <Link href="/dashboard" className="text-sm text-blue-400 hover:underline">← Kembali ke Dashboard</Link>
+                    <Link href="/dashboard/admin" className="text-sm text-blue-400 hover:underline">← Kembali ke Panel admin</Link>
                     <p className="mt-8 text-xs font-bold uppercase tracking-[0.28em] text-[#B7FB5B]">DCMS Express API</p>
                     <h1 className="mt-3 font-nebulica text-3xl font-bold">API Documentation</h1>
                     <p className="mt-4 max-w-2xl leading-7 text-zinc-400">

@@ -36,7 +36,8 @@ export default function MarketWatchlist({ symbols, entries, selectedSymbol, onSe
                         type="button"
                         onClick={() => onSelect(symbol)}
                         aria-pressed={isSelected}
-                        className={`group relative w-full px-3 py-4 text-left transition duration-300 hover:bg-white/[0.025] active:scale-[0.99] ${
+                        data-press="surface"
+                        className={`group relative w-full px-3 py-4 text-left transition duration-300 hover:bg-white/[0.025] ${
                             isSelected
                                 ? "bg-[#B7FB5B]/[0.055]"
                                 : "bg-transparent"

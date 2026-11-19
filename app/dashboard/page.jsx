@@ -1,37 +1,34 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import Image from "next/image";
 import DashboardShell from "@/components/DashboardShell";
-import DashboardSignalWorkspace from "./DashboardSignalWorkspace";
+import DashboardToast from "./DashboardToast";
+import ScamPumpSection from "./ScamPumpSection";
+import AnalysisPanel from "./overview/AnalysisPanel";
+import AnalyzeCoinModal from "./overview/AnalyzeCoinModal";
+import LockedSignalsPanel, { formatLockedLevels } from "./overview/LockedSignalsPanel";
+import TickerStrip from "./overview/TickerStrip";
+import { readLastTimeframe, rememberTimeframe } from "./overview/analysis-timeframes";
+import { formatPrice, pairLabel } from "./overview/ui";
+import { useAnalysisTabs } from "./overview/useAnalysisTabs";
+import { analysisKey } from "@/lib/signals/analysis-tabs";
+import { lockSignalPlan } from "@/lib/signals/api";
+import { LOCKED_ALERT, lockedAlerts } from "@/lib/signals/locked-track";
 import { buildPartialTpPlan } from "@/lib/market/partial-tp";
 import { apiRequest } from "@/lib/api/client";
-import { useAdminSummary, useLockedSignals, useMarketDashboard } from "@/lib/market/dashboard";
-import { describeDataHealth, describePendingTimeframe, formatTimeframeLabel } from "@/lib/market/dashboard-core";
+import { useLockedSignals, useMarketDashboard } from "@/lib/market/dashboard";
+import { describeDataHealth } from "@/lib/market/dashboard-core";
 import { describeStatus } from "@/lib/signals/lifecycle";
 import { describeLockedMovement, resolveLockedLifecycleStatus } from "@/lib/signals/locked";
 import { useAuth } from "@/components/auth/AuthProvider";
 
-const FONT_NEBULICA = "Nebulica, sans-serif";
+// Slideout detail dimuat saat pertama kali dibuka saja.
+const SignalDetailSideout = dynamic(() => import("./SignalDetailSideout"), { ssr: false });
+
 const FONT_CHAKRA = "var(--font-chakra-petch), Chakra Petch, sans-serif";
 const FIGMA_TEXT = {
-    text2xlBoldWhite: {
-        fontFamily: FONT_NEBULICA,
-        fontSize: "clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem)",
-        fontWeight: 700,
-        lineHeight: "32px",
-        letterSpacing: 0,
-        color: "#FFFFFF",
-    },
-    textBaseRegularWhite: {
-        fontFamily: FONT_CHAKRA,
-        fontSize: "clamp(0.875rem, 0.825rem + 0.25vw, 1rem)",
-        fontWeight: 400,
-        lineHeight: "24px",
-        letterSpacing: 0,
-        color: "#FFFFFF",
-    },
     textBaseMediumWhite: {
         fontFamily: FONT_CHAKRA,
         fontSize: "clamp(0.875rem, 0.825rem + 0.25vw, 1rem)",
@@ -39,21 +36,6 @@ const FIGMA_TEXT = {
         lineHeight: "24px",
         letterSpacing: 0,
         color: "#FFFFFF",
-    },
-    textSmBoldWhite: {
-        fontFamily: FONT_CHAKRA,
-        fontSize: "clamp(0.8125rem, 0.7875rem + 0.125vw, 0.875rem)",
-        fontWeight: 700,
-        lineHeight: "20px",
-        letterSpacing: 0,
-        color: "#FFFFFF",
-    },
-    textSmMedium: {
-        fontFamily: FONT_CHAKRA,
-        fontSize: "clamp(0.8125rem, 0.7875rem + 0.125vw, 0.875rem)",
-        fontWeight: 500,
-        lineHeight: "20px",
-        letterSpacing: 0,
     },
     textXsBoldWhite: {
         fontFamily: FONT_CHAKRA,
@@ -90,12 +72,6 @@ function formatUsd(value, digits = 2) {
 function formatSignedPercent(value) {
     const number = Number(value || 0);
     return `${number > 0 ? "+" : ""}${number.toFixed(2)}%`;
-}
-
-function getSignalChange(signals, symbol) {
-    const signal = signals.find((item) => item.symbol === symbol);
-    const change = Number(signal?.change);
-    return Number.isFinite(change) ? change : null;
 }
 
 function biasStyles(bias) {
@@ -226,7 +202,7 @@ function SignalProgress({ signal }) {
                     );
                 })}
                 <span
-                    className="absolute top-1/2 z-20 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#B7FB5B] shadow-[0_0_0_6px_rgba(183,251,91,0.16)] transition-transform group-hover:scale-110"
+                    className="absolute top-1/2 z-20 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#B7FB5B] shadow-[0_0_0_6px_rgba(183,251,91,0.16)] transition-transform"
                     style={{ left: `${currentPercent}%` }}
                     title={`Current: ${formatPriceLabel(signal.price)}`}
                 />
@@ -265,7 +241,7 @@ function SignalProgress({ signal }) {
 
 function LockedSignalList({ lockedSignals, onRefresh, onRetry, onDeleted, refreshing, loading, error }) {
     return (
-        <section id="lock-signal-list" className="mt-6 scroll-mt-28 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 sm:p-5">
+        <section id="lock-signal-list" className="scroll-mt-24 rounded-2xl border border-[#232a30] bg-[#111417] p-4 sm:p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-400">Lock Signal</p>
@@ -421,7 +397,7 @@ function LockedSignalCard({ signal, onDeleted }) {
                             type="button"
                             onClick={handleDelete}
                             disabled={deleting}
-                            className="grid size-9 place-items-center rounded-lg border border-red-500/20 bg-red-500/10 text-red-300 transition hover:border-red-400/40 hover:bg-red-500/20 hover:text-red-100 active:scale-95 disabled:opacity-50"
+                            className="grid size-9 place-items-center rounded-lg border border-red-500/20 bg-red-500/10 text-red-300 transition hover:border-red-400/40 hover:bg-red-500/20 hover:text-red-100 active:scale-[0.97] disabled:opacity-50"
                             aria-label={`Remove locked signal ${signal.base}`}
                             title="Remove locked signal"
                         >
@@ -464,309 +440,258 @@ function LockedSignalCard({ signal, onDeleted }) {
     );
 }
 
-function DashboardIntro({ session, pendingCount }) {
+function DashboardIntro({ session, signals, onSelectTicker }) {
     return (
-        <section className="w-full rounded-xl bg-gradient-to-b from-[#222129] to-[#100f15] p-4 text-white sm:p-5 lg:p-6">
-            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
-                <div className="min-w-0">
-                    <h1 style={FIGMA_TEXT.text2xlBoldWhite}>Dashboard</h1>
-                    <p className="mt-[7px]" style={FIGMA_TEXT.textBaseRegularWhite}>
-                        Selamat datang, {session.user.name || session.user.email}. Dashboard ini hanya alat bantu, jadi tetap lakukan riset sendiri atas semua informasi di sini.
-                    </p>
-                </div>
-
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <Link
-                        href="/dashboard/signals/history"
-                        className="min-h-11 rounded-md border border-zinc-700/60 bg-zinc-800/40 px-3 py-2 font-chakra text-xs font-bold text-zinc-300 transition hover:bg-zinc-700/40 hover:text-white"
-                    >
+        <section className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+            <div className="min-w-0">
+                <h1 className="font-chakra text-[22px] font-bold leading-7 text-[#f8fafc]">
+                    Selamat datang, {session.user.name || session.user.email}
+                </h1>
+                <p className="mt-1 font-chakra text-sm leading-5 text-[#94a3b8]">
+                    Dashboard ini hanya tools, selalu DYOR dengan segala informasi yang diberikan.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-chakra text-xs font-semibold">
+                    <Link href="/dashboard/signals/history" className="text-[#94a3b8] underline-offset-4 hover:text-[#f8fafc] hover:underline">
                         Riwayat signal
                     </Link>
                     {session.user.role === "ADMIN" && (
-                        <Link
-                            href="/dashboard/admin/users"
-                            className="min-h-11 rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 font-chakra text-xs font-bold text-blue-300 transition hover:bg-blue-500/20"
-                        >
-                            Review user ({pendingCount})
+                        <Link href="/dashboard/admin" className="text-sky-300 underline-offset-4 hover:underline">
+                            Panel admin
                         </Link>
                     )}
                 </div>
             </div>
+            <TickerStrip signals={signals} onSelect={onSelectTicker} />
         </section>
     );
 }
 
-function CoinBadge({ coin }) {
-    const isBitcoin = coin === "BTC";
-    const iconSrc = isBitcoin ? "/bitcoin-btc-logo.svg" : "/ethereum-eth-logo.svg";
-
-    return (
-        <div className={`grid size-9 shrink-0 place-items-center rounded-full ${isBitcoin ? "bg-[#fff9e9]" : "bg-[#d0cbff]"}`}>
-            <Image
-                src={iconSrc}
-                alt=""
-                width={isBitcoin ? 20 : 11}
-                height={isBitcoin ? 20 : 16}
-                className="object-contain"
-            />
-        </div>
-    );
-}
-
-function CoinSummaryCard({ coin, name, value, change24h }) {
-    const hasChange = change24h !== null && change24h !== undefined && Number.isFinite(Number(change24h));
-    const change = Number(change24h || 0);
-    const isPositive = change >= 0;
-
-    return (
-        <article
-            className="relative min-h-[112px] min-w-0 overflow-hidden rounded-xl bg-gradient-to-br from-[#B7FB5B] via-[#45444a] to-[#B7FB5B] p-px"
-            style={{ boxSizing: "border-box" }}
-        >
-            <div className="flex h-full flex-col justify-between rounded-[11px] bg-gradient-to-b from-[#222129] to-[#100f15] p-4">
-                <div className="flex items-center gap-3">
-                    <CoinBadge coin={coin} />
-                    <div className="min-w-0 flex-1">
-                        <p style={FIGMA_TEXT.textSmBoldWhite}>{coin}</p>
-                        <p style={{ ...FIGMA_TEXT.textXsMedium, color: "#A1A1AA" }}>{name}</p>
-                    </div>
-                    {hasChange && (
-                        <div className={`shrink-0 rounded-md border px-2 py-1 ${isPositive
-                            ? "border-[#B7FB5B]/25 bg-[#B7FB5B]/10 text-[#B7FB5B]"
-                            : "border-[#f87171]/25 bg-[#f87171]/10 text-[#f87171]"
-                            }`}>
-                            <p className="whitespace-nowrap" style={{ ...FIGMA_TEXT.textXsBoldWhite, color: "currentColor" }}>
-                                {isPositive ? "↗" : "↘"} {formatSignedPercent(change)}
-                            </p>
-                            <p className="text-right uppercase tracking-[0.16em]" style={{ ...FIGMA_TEXT.textXsMedium, color: "currentColor", fontSize: 10 }}>
-                                24H
-                            </p>
-                        </div>
-                    )}
-                </div>
-                <p style={FIGMA_TEXT.text2xlBoldWhite}>{value}</p>
-            </div>
-        </article>
-    );
-}
-
-function MiniMetricCard({ label, value, tone, meta }) {
-    return (
-        <div className="flex min-h-[54px] min-w-0 flex-1 flex-col justify-center gap-1 rounded-xl bg-gradient-to-b from-[#222129] to-[#100f15] px-3 py-2">
-            <p className="truncate" style={{ ...FIGMA_TEXT.textXsMedium, color: "#FFFFFF" }}>{label}</p>
-            <p className={tone} style={FIGMA_TEXT.textXsMedium}>{value}</p>
-            {meta && (
-                <p className="truncate font-chakra text-[10px] font-bold uppercase leading-3 text-zinc-400">{meta}</p>
-            )}
-        </div>
-    );
-}
-
-function TimeframeMenu({ current, pendingTimeframe, onChange }) {
-    const options = ["1m", "15m", "1h", "4h", "1d"];
-    const detailsRef = useRef(null);
-    // Kontrol lain tetap bisa dipakai selama refresh, jadi tidak ada `disabled`
-    // di sini: user boleh berpindah lagi tanpa menunggu request yang lambat.
-    const label = pendingTimeframe ? describePendingTimeframe(pendingTimeframe) : formatTimeframeLabel(current);
-
-    function closeMenu({ focusSummary = false } = {}) {
-        const details = detailsRef.current;
-        if (!details?.open) return;
-
-        details.open = false;
-        if (focusSummary) details.querySelector("summary")?.focus();
-    }
-
-    function handleSelect(option) {
-        onChange(option);
-        closeMenu({ focusSummary: true });
-    }
-
-    return (
-        <details
-            ref={detailsRef}
-            className="group relative z-50 shrink-0"
-            onKeyDown={(event) => {
-                if (event.key !== "Escape") return;
-                event.preventDefault();
-                closeMenu({ focusSummary: true });
-            }}
-            onBlur={(event) => {
-                if (event.currentTarget.contains(event.relatedTarget)) return;
-                closeMenu();
-            }}
-        >
-            <summary
-                aria-busy={pendingTimeframe ? "true" : undefined}
-                className="flex min-h-11 w-[92px] cursor-pointer list-none items-center justify-center gap-2 rounded-md border border-[#36353d] bg-[#d9f99d] px-2 py-2.5 shadow-[0_1px_2px_rgba(20,21,26,0.05)] transition duration-300 ease-out marker:hidden hover:bg-[#cff789] active:scale-[0.98] group-open:rounded-b-none group-open:border-[#B7FB5B]/70 [&::-webkit-details-marker]:hidden aria-busy:w-[128px]"
-            >
-                <span className="min-w-[2.25rem] truncate text-center uppercase" style={{ ...FIGMA_TEXT.textXsMedium, color: "#16161e" }}>{label}</span>
-                <svg
-                    className="size-4 shrink-0 text-[#16161e] transition-transform duration-300 ease-out group-open:rotate-180"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                >
-                    <path d="M5 8l5 5 5-5" />
-                </svg>
-            </summary>
-            <div className="absolute right-0 top-full z-50 flex w-[92px] origin-top flex-col overflow-hidden rounded-b-md border border-t-0 border-[#36353d] bg-[#17161c] opacity-0 shadow-xl transition duration-300 ease-out group-open:opacity-100 motion-safe:group-open:animate-[timeframe-menu_180ms_ease-out]">
-                {options.map((option) => (
-                    <button
-                        key={option}
-                        type="button"
-                        onClick={() => handleSelect(option)}
-                        aria-current={option === current ? "true" : undefined}
-                        className={`min-h-11 px-3 py-2 text-center uppercase transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#B7FB5B] ${option === current
-                            ? "bg-[#d9f99d] text-[#16161e]"
-                            : "text-[#949398] hover:bg-white/[0.04] hover:text-white"
-                            }`}
-                        style={FIGMA_TEXT.textXsMedium}
-                    >
-                        {option === pendingTimeframe ? describePendingTimeframe(option) : option}
-                    </button>
-                ))}
-            </div>
-        </details>
-    );
-}
-
-function DashboardOverview({ marketDashboard, session, pendingCount, pendingTimeframe, onTimeframeChange }) {
-    const usdtDominanceTrendRegime = marketDashboard.usdtDominanceTrend?.regime || "UNKNOWN";
-    const regimeText = marketDashboard.usdtDominance.market
-        ? marketDashboard.usdtDominance.market.toLowerCase().replace(/^market\s*/, "")
-        : "neutral";
-    const btcChange = getSignalChange(marketDashboard.signals, "BTCUSDT");
-    const ethChange = getSignalChange(marketDashboard.signals, "ETHUSDT");
-
-    return (
-        <div className="flex flex-col items-stretch gap-4">
-            <DashboardIntro session={session} pendingCount={pendingCount} />
-
-            <section className="relative z-10 grid w-full grid-cols-[repeat(auto-fit,minmax(min(100%,180px),1fr))] items-stretch gap-4 overflow-visible">
-                <CoinSummaryCard coin="BTC" name="Bitcoin" value={formatUsd(marketDashboard.tickers.btc, 0)} change24h={btcChange} />
-                <CoinSummaryCard coin="ETH" name="Ethereum" value={formatUsd(marketDashboard.tickers.eth, 0)} change24h={ethChange} />
-
-                <div
-                    className="grid min-h-[112px] min-w-0 grid-cols-2 gap-3 sm:gap-4 lg:col-span-2 xl:col-span-1"
-                    style={{ boxSizing: "border-box" }}
-                >
-                    <div className="contents">
-                        <MiniMetricCard
-                            label="USDT.D"
-                            value={`${marketDashboard.usdtDominance.value.toFixed(2)}%`}
-                            tone="text-[#bef264]"
-                            meta={usdtDominanceTrendRegime}
-                        />
-                        <MiniMetricCard label="LONG" value={marketDashboard.stats.long} tone="text-[#6ee7b7]" />
-                        <MiniMetricCard label="NEUTRAL" value={marketDashboard.stats.neutral} tone="text-[#38bdf8]" />
-                        <MiniMetricCard label="SHORT" value={marketDashboard.stats.short} tone="text-[#fca5a5]" />
-                    </div>
-                </div>
-
-                <article
-                    className="relative flex min-h-[112px] min-w-0 items-center overflow-visible rounded-xl bg-gradient-to-b from-[#222129] to-[#100f15] px-4 py-4 sm:px-6 md:col-span-2"
-                    style={{ boxSizing: "border-box" }}
-                >
-                    <div className="flex w-full flex-col items-start gap-3 min-[420px]:flex-row min-[420px]:items-center">
-                        <div className="min-w-0 flex-1 text-white">
-                            <p style={FIGMA_TEXT.textBaseMediumWhite}>Market regime</p>
-                            <h2 className="mt-[7px] text-balance" style={FIGMA_TEXT.text2xlBoldWhite}>
-                                Market masih {regimeText}
-                            </h2>
-                        </div>
-                        <TimeframeMenu
-                            current={marketDashboard.timeframe}
-                            pendingTimeframe={pendingTimeframe}
-                            onChange={onTimeframeChange}
-                        />
-                    </div>
-                </article>
-            </section>
-        </div>
-    );
-}
+const LOCKED_POLL_MS = 30_000;
+const UNDO_LOCK_MS = 8_000;
+const HIGHLIGHT_MS = 8_000;
 
 export default function DashboardPage() {
     const { user } = useAuth();
     const isSignedIn = Boolean(user);
+    // Data dashboard sekarang hanya mengisi ticker BTC/ETH/SOL (perubahan 24 jam
+    // dan sparkline). Hasil analisis berasal dari koin yang dipilih user.
     const market = useMarketDashboard({ enabled: isSignedIn });
-    const locked = useLockedSignals({ enabled: isSignedIn });
-    const admin = useAdminSummary({ enabled: isSignedIn && user?.role === "ADMIN" });
+    const locked = useLockedSignals({ enabled: isSignedIn, pollMs: LOCKED_POLL_MS });
+    const analysis = useAnalysisTabs();
+    const [modal, setModal] = useState(null);
+    const [detailSignal, setDetailSignal] = useState(null);
+    const [toasts, setToasts] = useState([]);
+    const [highlightId, setHighlightId] = useState(null);
+    // Sinyal yang dihapus user sendiri tidak dilaporkan sebagai "keluar dari pantauan".
+    const removedIdsRef = useRef(new Set());
+    const alertSnapshotRef = useRef(null);
 
-    const { dashboard, pendingTimeframe, displayedTimeframe, initialLoading, refreshing, error } = market;
+    const { dashboard, error } = market;
     const dataHealth = describeDataHealth(dashboard?.meta);
     const session = { user: user || {} };
+    const lockedKeys = new Set(locked.items.map((item) => analysisKey(item.symbol, item.timeframe)));
+
+    const dismissToast = useCallback((id) => setToasts((current) => current.filter((toast) => toast.id !== id)), []);
+    const showToast = useCallback((type, message, extra = {}) => {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        setToasts((current) => [...current.slice(-2), { id, type, message, ...extra }]);
+    }, []);
+
+    useEffect(() => {
+        if (!highlightId) return undefined;
+        const timer = window.setTimeout(() => setHighlightId(null), HIGHLIGHT_MS);
+        return () => window.clearTimeout(timer);
+    }, [highlightId]);
+
+    // Kembali dari Live chart: `open` mengaktifkan tab koin yang sama dan
+    // `highlight` menyorot sinyal yang baru dikunci di sana. Dibaca sekali.
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const open = params.get("open");
+        const timeframe = params.get("timeframe");
+        const highlight = params.get("highlight");
+        if (!open && !highlight) return;
+        if (open && timeframe) {
+            const key = analysisKey(open, timeframe);
+            if (analysis.tabs.some((tab) => tab.key === key)) analysis.select(key);
+            else analysis.analyze(open, timeframe);
+        }
+        if (highlight) setHighlightId(highlight);
+        window.history.replaceState(window.history.state, "", window.location.pathname);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Bandingkan setiap pembacaan daftar aktif dengan sebelumnya untuk
+    // memberi tahu TP1 tersentuh atau sinyal yang selesai dipantau.
+    const lockedItems = locked.items;
+    const lockedLoading = locked.loading;
+    useEffect(() => {
+        if (lockedLoading) return;
+        const { alerts, snapshot } = lockedAlerts(alertSnapshotRef.current, lockedItems, { ignoreIds: removedIdsRef.current });
+        alertSnapshotRef.current = snapshot;
+        for (const alert of alerts) {
+            const pair = pairLabel(alert.signal);
+            if (alert.kind === LOCKED_ALERT.TP1) {
+                const movement = describeLockedMovement(alert.signal);
+                const pnl = movement.kind === "return" ? `PnL ${formatSignedPercent(movement.percent)}. ` : "";
+                showToast("success", `${pair} · TP1 tersentuh. ${pnl}Pertimbangkan geser SL ke entry.`, {
+                    action: { label: "Lihat", onClick: () => openLockedItem(alert.signal) },
+                    autoDismissMs: 15_000,
+                });
+            } else {
+                showToast("info", `${pair} selesai dipantau: TP2, SL, atau masa berlakunya tercapai. Detailnya ada di Riwayat signal.`);
+            }
+        }
+        // openLockedItem cukup diambil dari render terbaru; tidak perlu memicu ulang.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lockedItems, lockedLoading, showToast]);
+
+    function openModal(query = "") {
+        setModal({ query, timeframe: readLastTimeframe() });
+    }
+
+    function handleAnalyzeSubmit(symbol, timeframe) {
+        rememberTimeframe(timeframe);
+        setModal(null);
+        analysis.analyze(symbol, timeframe);
+    }
+
+    function openLockedItem(signal) {
+        const key = analysisKey(signal.symbol, signal.timeframe);
+        if (analysis.tabs.some((tab) => tab.key === key)) analysis.select(key);
+        else analysis.analyze(signal.symbol, signal.timeframe);
+        document.getElementById("analysis-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    async function deleteLocked(signal) {
+        removedIdsRef.current.add(signal.id);
+        await apiRequest(`/signals/locked/${encodeURIComponent(signal.id)}`, { method: "DELETE" });
+        locked.setItems((items) => items.filter((item) => item.id !== signal.id));
+    }
+
+    async function handleLock(signal) {
+        // Lock mengikuti signalId begitu backend menerbitkannya; hasil analisis
+        // per koin mengirim levelnya sendiri.
+        const payload = await lockSignalPlan({ signalId: signal.signalId ?? null }, signal);
+        const item = payload?.signal;
+        if (!item) return;
+        locked.setItems((items) => [item, ...items.filter((existing) => existing.id !== item.id)]);
+        setHighlightId(item.id);
+        showToast("success", `${pairLabel(item)} · ${String(item.bias).toUpperCase()} dikunci. Harga snapshot $${formatPrice(item.currentPrice ?? item.entry)}.`, {
+            action: {
+                label: "Batalkan",
+                onClick: () => deleteLocked(item).catch((undoError) => {
+                    removedIdsRef.current.delete(item.id);
+                    showToast("error", undoError?.message || "Lock gagal dibatalkan. Hapus lewat menu sinyal.");
+                }),
+            },
+            autoDismissMs: UNDO_LOCK_MS,
+        });
+    }
+
+    async function handleDeleteItem(signal) {
+        const pair = pairLabel(signal);
+        // Hapus permanen di server, jadi dikonfirmasi lewat dialog bawaan browser.
+        if (!window.confirm(`Hapus ${pair} dari pantauan? Pemantauan harga untuk rencana ini berhenti.`)) return;
+        try {
+            await deleteLocked(signal);
+            showToast("success", `${pair} dihapus dari pantauan.`);
+        } catch (deleteError) {
+            removedIdsRef.current.delete(signal.id);
+            showToast("error", deleteError?.message || `${pair} gagal dihapus. Coba lagi.`);
+        }
+    }
+
+    async function handleCopyItem(signal) {
+        try {
+            await navigator.clipboard.writeText(formatLockedLevels(signal));
+            showToast("success", `Level ${pairLabel(signal)} disalin.`);
+        } catch {
+            showToast("error", "Clipboard tidak bisa diakses browser ini.");
+        }
+    }
 
     return (
         <DashboardShell>
-            <div className="mx-auto w-full max-w-[1600px] px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-                {initialLoading && !dashboard && (
-                    <div className="grid min-h-[50vh] place-items-center font-chakra text-sm text-zinc-400">Memuat data market…</div>
-                )}
+            <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:pt-7">
+                <DashboardIntro
+                    session={session}
+                    signals={dashboard?.signals}
+                    onSelectTicker={(base) => openModal(base)}
+                />
 
-                {/* Kegagalan memperbarui tidak menghapus board. Pesannya menyebut
-                    timeframe yang diminta dan yang masih ditampilkan. */}
-                {error && (
-                    <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 font-chakra text-sm text-red-200">
-                        <span>{error}</span>
-                        <button
-                            type="button"
-                            onClick={market.retry}
-                            className="min-h-11 rounded-md border border-red-400/40 px-3 font-bold text-red-100 underline transition hover:bg-red-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-300"
-                        >
+                {/* Ticker gagal dimuat tidak menghalangi analisis; pesannya tetap ditulis. */}
+                {error && !dashboard && (
+                    <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 font-chakra text-sm text-red-200">
+                        <span>Data ticker gagal dimuat: {error}</span>
+                        <button type="button" onClick={market.retry} className="font-bold underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-300">
                             Coba lagi
                         </button>
                     </div>
                 )}
+                {dataHealth.text && (
+                    <p className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 font-chakra text-sm text-amber-200">
+                        {dataHealth.text}
+                    </p>
+                )}
 
-                {dashboard && (
-                    <div aria-busy={refreshing ? "true" : "false"}>
-                        {/* Status data ditulis sebagai teks, bukan hanya warna. */}
-                        {dataHealth.text && (
-                            <p className="mb-4 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 font-chakra text-sm text-amber-200">
-                                {dataHealth.text}
-                            </p>
-                        )}
-
-                        <DashboardOverview
-                            marketDashboard={dashboard}
-                            session={session}
-                            pendingCount={admin.pendingCount}
-                            pendingTimeframe={pendingTimeframe}
-                            onTimeframeChange={market.selectTimeframe}
-                        />
-
-                        <LockedSignalList
-                            lockedSignals={locked.items}
-                            loading={locked.loading}
-                            error={locked.error}
-                            refreshing={locked.refreshing}
-                            onRefresh={locked.refresh}
-                            onRetry={locked.retry}
-                            onDeleted={(id) => locked.setItems((items) => items.filter((item) => item.id !== id))}
-                        />
-
-                        {/* Tanpa `key` timeframe: workspace menerima data baru lewat
-                            props dan menyimpan state yang tidak terkait timeframe. */}
-                        <DashboardSignalWorkspace
-                            initialSignals={dashboard.signals}
-                            initialSearchKeyword={market.symbol}
-                            timeframe={displayedTimeframe}
-                            updatedAt={dashboard.updatedAt}
-                            lockedSignalPlanIds={locked.items.map((signal) => signal.signalPlanId).filter(Boolean)}
-                            onLocked={(lockedSignal) => locked.setItems((items) => [
-                                lockedSignal,
-                                ...items.filter((item) => item.id !== lockedSignal.id),
-                            ])}
+                <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+                    <div id="analysis-panel" className="min-w-0 scroll-mt-6">
+                        <AnalysisPanel
+                            tabs={analysis.tabs}
+                            activeTab={analysis.activeTab}
+                            lockedKeys={lockedKeys}
+                            onSelect={analysis.select}
+                            onRemove={analysis.remove}
+                            onCancel={analysis.cancel}
+                            onRetry={(tab) => analysis.analyze(tab.symbol, tab.timeframe)}
+                            onReanalyze={(tab) => analysis.analyze(tab.symbol, tab.timeframe, { reanalyze: true })}
+                            onOpenModal={openModal}
+                            onLock={handleLock}
+                            onOpenDetail={setDetailSignal}
                         />
                     </div>
+                    <LockedSignalsPanel
+                        items={locked.items}
+                        meta={locked.meta}
+                        loading={locked.loading}
+                        error={locked.error}
+                        highlightId={highlightId}
+                        onRetry={locked.retry}
+                        onOpenItem={openLockedItem}
+                        onCopyItem={handleCopyItem}
+                        onDeleteItem={handleDeleteItem}
+                    />
+                </div>
+
+                {locked.items.length > 0 && (
+                    <LockedSignalList
+                        lockedSignals={locked.items}
+                        loading={locked.loading}
+                        error={locked.error}
+                        refreshing={locked.refreshing}
+                        onRefresh={locked.refresh}
+                        onRetry={locked.retry}
+                        onDeleted={(id) => {
+                            removedIdsRef.current.add(id);
+                            locked.setItems((items) => items.filter((item) => item.id !== id));
+                        }}
+                    />
                 )}
+
+                <ScamPumpSection onToast={showToast} />
             </div>
+
+            <DashboardToast toasts={toasts} onDismiss={dismissToast} />
+            {modal && (
+                <AnalyzeCoinModal
+                    initialQuery={modal.query}
+                    defaultTimeframe={modal.timeframe}
+                    onClose={() => setModal(null)}
+                    onSubmit={handleAnalyzeSubmit}
+                />
+            )}
+            {detailSignal && <SignalDetailSideout signal={detailSignal} onClose={() => setDetailSignal(null)} />}
         </DashboardShell>
     );
 }

@@ -131,6 +131,225 @@ body {
   }
 }
 
+/* ===== AI Agent (tab di halaman chart) =====
+   Satu kurva untuk semua gerak: cepat di awal, mendarat halus. */
+:root {
+  --ai-ease: var(--ease-out);
+}
+
+/* Progres tanpa angka: backend belum mengirim langkah kerjanya. */
+@keyframes ai-progress {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.ai-progress {
+  animation: ai-progress 1.6s ease-in-out infinite;
+}
+
+/* Panel, pesan, dan blok level muncul naik sedikit sambil memudar masuk. */
+@keyframes ai-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ai-rise-from-right {
+  from {
+    opacity: 0;
+    transform: translate(10px, 4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes ai-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ai-typing {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+@keyframes ai-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes ai-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(167, 139, 250, 0);
+  }
+  50% {
+    box-shadow: 0 0 18px 0 rgba(167, 139, 250, 0.28);
+  }
+}
+
+.ai-rise {
+  animation: ai-rise 320ms var(--ai-ease) both;
+}
+
+.ai-rise-right {
+  animation: ai-rise-from-right 280ms var(--ai-ease) both;
+}
+
+.ai-pop {
+  animation: ai-pop 240ms var(--ai-ease) both;
+}
+
+.ai-typing-dot {
+  animation: ai-typing 1.1s ease-in-out infinite;
+}
+
+.ai-nudge {
+  animation: ai-nudge 320ms ease-in-out 1;
+}
+
+.ai-glow {
+  animation: ai-glow 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-progress {
+    left: 0;
+    width: 100%;
+    animation: none;
+    opacity: 0.6;
+  }
+
+  .ai-rise,
+  .ai-rise-right,
+  .ai-pop,
+  .ai-typing-dot,
+  .ai-nudge,
+  .ai-glow {
+    animation: none !important;
+  }
+}
+
+/* ── Tactile (skill tactile-design, dark) ──
+   Dashboard hanya gelap, jadi elevasi memakai resep dark: permukaan yang naik
+   sedikit lebih terang dari dasarnya, satu outline solid 0.5px, dan bayangan
+   hitam yang rapat. Tidak ada glow, tidak ada tepi atas yang menyala.
+   Dasar #0b0d0f → panel #111417 → kontrol #1a1f24 → outline #232a30 / #334155. */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --shadow-button: 0 0 0 0.5px #334155, 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-primary: 0 0 0 0.5px #b8fb5c, 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-card: 0 0 0 0.5px #232a30, 0 1px 2px 0 rgb(0 0 0 / 0.5), 0 3px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-menu: 0 0 0 0.5px #334155, 0 1px 2px 0 rgb(0 0 0 / 0.5), 0 4px 8px -4px rgb(0 0 0 / 0.5);
+  --shadow-modal: 0 0 0 0.5px #334155, 0 1px 2px 0 rgb(0 0 0 / 0.5), 0 6px 8px -4px rgb(0 0 0 / 0.5);
+  --shadow-table: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+}
+
+/* Tekan: kontrol mengecil ke .97, permukaan lebar (baris, item menu, kartu) ke .99.
+   Ditaruh di layer components, jadi kelas utility di elemen selalu menang.
+   data-press="none" mematikan; tautan teks bergaris bawah dilewati. Skala tekan
+   tetap ada saat reduced motion karena itu umpan balik, bukan perpindahan. */
+@layer components {
+  [data-tactile] :is(button, [role="button"], [role="tab"], [role="radio"], [role="switch"], summary, a[href][class*="rounded"]):not([data-press]):not([class*="underline"]),
+  [data-tactile] :is([data-press="surface"], [data-press="card"], [role="menuitem"], [role="option"]) {
+    transition-property: color, background-color, border-color, box-shadow, opacity, scale;
+    transition-duration: 150ms;
+    transition-timing-function: var(--ease-out);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  [data-tactile] :is(button, [role="button"], [role="tab"], [role="radio"], [role="switch"], summary, a[href][class*="rounded"]):not([data-press]):not([class*="underline"]):active:not(:disabled):not([aria-disabled="true"]) {
+    scale: 0.97;
+  }
+
+  [data-tactile] :is([data-press="surface"], [role="menuitem"], [role="option"]):active:not(:disabled):not([aria-disabled="true"]),
+  [data-tactile] [data-press="card"]:has([data-press="overlay"]:active) {
+    scale: 0.99;
+  }
+}
+
+/* Menu dan popover: dari scale .97 + pudar, 150ms, berasal dari pemicunya
+   (pasangkan dengan origin-top-left/right). Modal tidak membesar: naik 16px
+   dengan blur 4px, 240ms. */
+@keyframes tactile-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@keyframes tactile-dialog {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(4px);
+  }
+}
+
+@keyframes tactile-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.tactile-pop {
+  animation: tactile-pop 150ms var(--ease-out);
+}
+
+.tactile-dialog {
+  animation: tactile-dialog 240ms var(--ease-out);
+}
+
+.tactile-backdrop {
+  animation: tactile-fade 200ms var(--ease-out);
+}
+
+.tactile-sheet {
+  animation: sideout-panel 240ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Lebih sedikit gerak, bukan nol: perpindahan dan blur jadi pudar 200ms. */
+  .tactile-pop,
+  .tactile-dialog,
+  .tactile-sheet {
+    animation: tactile-fade 200ms var(--ease-out);
+  }
+}
+
 @keyframes sideout-backdrop {
   from {
     opacity: 0;

@@ -160,7 +160,7 @@ function ResultRow({ result, index, levelLabel, onOpen4H }) {
             <button
                 type="button"
                 onClick={() => onOpen4H(result.symbol)}
-                className="inline-flex w-full touch-manipulation items-center justify-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-gray-200 transition duration-300 hover:-translate-y-0.5 hover:border-[#B7FB5B]/60 hover:text-[#B7FB5B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B7FB5B]/60 active:translate-y-0 active:scale-[0.98] xl:w-auto"
+                className="inline-flex w-full touch-manipulation items-center justify-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-gray-200 transition duration-300 hover:border-[#B7FB5B]/60 hover:text-[#B7FB5B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B7FB5B]/60 active:translate-y-0 active:scale-[0.97] xl:w-auto"
                 aria-label={`Buka ${result.symbol} pada chart 4 jam`}
             >
                 Open 4H
@@ -270,7 +270,7 @@ export default function PwlProximityScanner({ onOpen4H }) {
                         onClick={scan}
                         disabled={loading}
                         aria-busy={loading}
-                        className="inline-flex flex-1 touch-manipulation items-center justify-center gap-2 rounded-lg bg-[#B7FB5B] px-4 py-2.5 text-sm font-semibold text-[#0b0f17] transition duration-300 hover:-translate-y-0.5 hover:bg-[#c4ff78] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B7FB5B]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d131d] active:translate-y-0 active:scale-[0.98] disabled:cursor-wait disabled:opacity-65 sm:flex-none"
+                        className="inline-flex flex-1 touch-manipulation items-center justify-center gap-2 rounded-lg bg-[#B7FB5B] px-4 py-2.5 text-sm font-semibold text-[#0b0f17] transition duration-300 hover:bg-[#c4ff78] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B7FB5B]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d131d] active:translate-y-0 active:scale-[0.97] disabled:cursor-wait disabled:opacity-65 sm:flex-none"
                     >
                         <span className={loading ? "market-live-dot" : "h-1.5 w-1.5 rounded-full bg-[#0b0f17]"} aria-hidden="true" />
                         {loading ? "Memindai market…" : `Scan ${selectedLabel}`}
@@ -281,7 +281,7 @@ export default function PwlProximityScanner({ onOpen4H }) {
                         aria-expanded={expanded}
                         aria-controls="pwl-scanner-content"
                         aria-label={expanded ? "Tutup panel scanner" : "Buka panel scanner"}
-                        className="grid h-10 w-10 shrink-0 touch-manipulation place-items-center rounded-lg border border-white/15 text-gray-400 transition duration-300 hover:border-white/25 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B7FB5B]/60 active:scale-[0.96]"
+                        className="grid h-10 w-10 shrink-0 touch-manipulation place-items-center rounded-lg border border-white/15 text-gray-400 transition duration-300 hover:border-white/25 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B7FB5B]/60 active:scale-[0.97]"
                     >
                         <CaretDown
                             size={17}

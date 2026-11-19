@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
 import MarketAnalysisControls from "./MarketAnalysisControls";
@@ -127,6 +127,13 @@ export default function MarketAnalysisWorkspace() {
         setSymbols((prev) => (prev.includes(symbol) ? prev : [...prev, symbol]));
         setSelectedSymbol(symbol);
     }, []);
+
+    // Tombol "Lihat chart" di dashboard membuka halaman ini dengan ?symbol=.
+    // Dibaca setelah mount supaya render server dan klien tetap sama.
+    useEffect(() => {
+        const requested = new URLSearchParams(window.location.search).get("symbol");
+        if (requested) handleAnalyze(requested);
+    }, [handleAnalyze]);
 
     const handleBasisChange = useCallback((value) => setBasis(value), []);
     const handleSessionChange = useCallback((value) => {

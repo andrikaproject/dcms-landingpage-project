@@ -123,7 +123,7 @@ export default function CoinSearchForm({
                         id={listId}
                         role="listbox"
                         aria-label="Saran coin Bitunix"
-                        className="absolute left-0 right-0 top-full z-50 mt-2 max-h-72 overflow-y-auto rounded-xl border border-zinc-800 bg-[#0b0c10] p-1 shadow-2xl"
+                        className="tactile-pop absolute left-0 right-0 top-full z-50 mt-2 max-h-72 origin-top overflow-y-auto rounded-xl bg-[#161a1e] p-1 shadow-[var(--shadow-menu)]"
                     >
                         {suggestions.map((pair, index) => {
                             const isActive = index === activeIndex;
@@ -187,7 +187,7 @@ export default function CoinSearchForm({
                     type="submit"
                     disabled={isSearching}
                     aria-busy={isSearching}
-                    className="h-12 rounded-xl bg-[#B7FB5B] px-5 text-sm font-black text-black transition hover:bg-[#a8ec4c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B7FB5B] active:scale-95 disabled:cursor-wait disabled:opacity-70"
+                    className="h-12 rounded-xl bg-[#B7FB5B] px-5 text-sm font-black text-black transition hover:bg-[#a8ec4c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B7FB5B] active:scale-[0.97] disabled:cursor-wait disabled:opacity-70"
                 >
                     <span className="flex items-center justify-center gap-2">
                         {isSearching && (

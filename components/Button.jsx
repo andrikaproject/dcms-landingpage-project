@@ -9,7 +9,7 @@ export const Button = ({
 }) => {
 
     // Base styles
-    const baseStyles = "inline-flex items-center justify-center font-bold tracking-wide transition-all duration-300 rounded-full focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed active:scale-95";
+    const baseStyles = "inline-flex items-center justify-center font-bold tracking-wide transition-[color,background-color,border-color,box-shadow,opacity,scale] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] rounded-full focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed active:not-disabled:scale-[0.97]";
 
     // Variants
     const variants = {

@@ -47,7 +47,7 @@ export default function AdaptiveGateObservabilityPage() {
             <div className="mx-auto max-w-6xl space-y-8">
                 <header className="flex flex-col justify-between gap-4 border-b border-zinc-800 pb-5 sm:flex-row sm:items-start">
                     <div>
-                        <Link href="/dashboard/admin/users" className="text-sm text-blue-400 hover:underline">← Kembali ke Management User</Link>
+                        <Link href="/dashboard/admin" className="text-sm text-blue-400 hover:underline">← Kembali ke Panel admin</Link>
                         <h1 className="mt-3 font-nebulica text-3xl font-bold">Adaptive Gate Observability</h1>
                         <p className="mt-1 text-sm text-zinc-500">Audit kesehatan learning system dan performa gate.</p>
                         <Link href="/dashboard/admin/ml" className="mt-2 inline-block text-sm text-blue-400 hover:underline">ML dan Pending Signal →</Link>

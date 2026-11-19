@@ -25,6 +25,27 @@ NEXT_PUBLIC_API_BASE_URL=https://dcms-api.my.id/v1
 
 Origin frontend (misalnya `http://localhost:3000`, staging, dan domain production) juga harus tercantum pada `FRONTEND_URL` di backend agar request ber-credential lolos CORS.
 
+### Menghubungkan ke backend lokal
+
+Biarkan `NEXT_PUBLIC_API_BASE_URL` kosong (atau isi `/api/v1`) supaya browser memakai proxy first-party `/api/v1`, lalu arahkan proxy itu ke backend yang diinginkan:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=/api/v1
+API_UPSTREAM_ORIGIN=http://127.0.0.1:4000
+```
+
+`API_UPSTREAM_ORIGIN` hanya dibaca di server dan harus berupa origin http/https tanpa path; nilai lain menggagalkan start supaya salah konfigurasi tidak mengirim cookie refresh ke tujuan tak terduga. Tanpa variabel ini, build production memakai `https://dcms-api.my.id` dan development memakai `http://127.0.0.1:4000`.
+
+## CMS Ebook
+
+Halaman pembaca ada di `/dashboard/ebook`, `/dashboard/ebook/[slug]`, dan `/dashboard/ebook/[slug]/lessons/[lessonId]`. Halaman admin ada di `/dashboard/admin/ebooks` beserta editor ebook, editor subbab, dan laporan progres; tautannya tersedia dari halaman Management User.
+
+Isi materi disimpan sebagai JSON Tiptap sesuai [kontrak integrasi](docs/superpowers/specs/2026-09-22-ebook-cms-contract.md): hanya paragraf, heading 2 dan 3, tebal, daftar, tautan http/https, dan gambar berbasis `assetId`. Pembaca memakai renderer React terpisah, bukan HTML dari materi.
+
+Gambar diunggah browser langsung ke object storage memakai izin sementara dari backend (init, PUT ke storage tanpa kredensial DCMS, lalu finalisasi). Bucket harus mengizinkan origin frontend untuk `PUT` dan `OPTIONS` dengan header `Content-Type`. Kredensial storage hanya ada di backend.
+
+Status integrasi dan bagian yang belum teruji tercatat pada [laporan validasi FE](docs/superpowers/verification/2026-09-22-ebook-cms-fe-validation.md).
+
 ## Verifikasi
 
 ```bash
