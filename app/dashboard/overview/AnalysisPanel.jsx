@@ -8,6 +8,7 @@ import { calculateEntryZone } from "@/lib/market/entry-zone";
 import { TAB_STATUS } from "@/lib/signals/analysis-tabs";
 import { formatRelativeTime } from "@/lib/signals/format";
 import BiasGauge from "./BiasGauge";
+import ScrollRail, { EDGE_MASK_STYLE, EDGE_PX, scrollBehavior } from "./ScrollRail";
 import { BiasPill, biasTone, CoinAvatar, formatPercent, formatPrice, formatTimeframe, Panel, SECTION_LABEL } from "./ui";
 
 const VOTE_ORDER = [VERDICT.LONG, VERDICT.NEUTRAL, VERDICT.SHORT, null];
@@ -45,8 +46,24 @@ function tabDotClass(tab) {
 function AnalysisTabs({ tabs, activeKey, onSelect, onRemove, panelId }) {
     const listRef = useRef(null);
 
+    const firstScrollRef = useRef(true);
+
+    // Fokus tidak menggulir sendiri; tab aktif digeser masuk penuh, melewati tepi
+    // yang memudar, supaya pindah tab lewat keyboard tidak meloncat kasar.
+    useEffect(() => {
+        const scroller = listRef.current;
+        const chip = activeKey ? scroller?.querySelector(`[data-key="${CSS.escape(activeKey)}"]`)?.parentElement : null;
+        if (!scroller || !chip) return;
+        const edge = EDGE_PX;
+        const view = scroller.getBoundingClientRect();
+        const box = chip.getBoundingClientRect();
+        const delta = box.left < view.left + edge ? box.left - view.left - edge : box.right > view.right - edge ? box.right - view.right + edge : 0;
+        if (delta) scroller.scrollBy({ left: delta, behavior: firstScrollRef.current ? "auto" : scrollBehavior() });
+        firstScrollRef.current = false;
+    }, [activeKey, tabs.length]);
+
     function focusTab(key) {
-        listRef.current?.querySelector(`[data-key="${CSS.escape(key)}"]`)?.focus();
+        listRef.current?.querySelector(`[data-key="${CSS.escape(key)}"]`)?.focus({ preventScroll: true });
     }
 
     function handleKeyDown(event, index) {
@@ -63,47 +80,50 @@ function AnalysisTabs({ tabs, activeKey, onSelect, onRemove, panelId }) {
     }
 
     return (
-        <div ref={listRef} role="tablist" aria-label="Koin yang sudah dianalisis" className="-mx-6 flex gap-2 overflow-x-auto px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {tabs.map((tab, index) => {
-                const selected = tab.key === activeKey;
-                const label = `${tab.base}/USDT`;
-                return (
-                    <div
-                        key={tab.key}
-                        role="presentation"
-                        className={`group flex h-[33px] shrink-0 items-center rounded-[10px] border transition ${selected ? "border-[#334155] bg-[#161a1e]" : "border-[#232a30] hover:border-[#334155]"}`}
-                    >
-                        <button
-                            type="button"
-                            role="tab"
-                            data-key={tab.key}
-                            aria-selected={selected}
-                            aria-controls={panelId}
-                            tabIndex={selected ? 0 : -1}
-                            onClick={() => onSelect(tab.key)}
-                            onKeyDown={(event) => handleKeyDown(event, index)}
-                            className={`flex h-full items-center gap-2 rounded-[10px] py-[7px] pl-2.5 pr-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8fb5c] ${selected ? "text-[#f8fafc]" : "text-[#94a3b8] hover:text-[#f8fafc]"}`}
+        <div className="-mt-1 flex flex-col">
+            <div ref={listRef} role="tablist" aria-label="Koin yang sudah dianalisis" style={EDGE_MASK_STYLE} className="-mx-6 flex snap-x snap-proximity scroll-px-12 gap-2 overflow-x-auto overscroll-x-contain px-6 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {tabs.map((tab, index) => {
+                    const selected = tab.key === activeKey;
+                    const label = `${tab.base}/USDT`;
+                    return (
+                        <div
+                            key={tab.key}
+                            role="presentation"
+                            className={`group flex h-[33px] shrink-0 snap-start items-center rounded-[10px] border transition ${selected ? "border-[#334155] bg-[#161a1e]" : "border-[#232a30] hover:border-[#334155]"}`}
                         >
-                            <span className={`size-1.5 rounded-full ${tabDotClass(tab)}`} aria-hidden />
-                            <span className="font-chakra text-[13px] font-semibold leading-[17px]">{label}</span>
-                            <span className="font-mono text-[11px] font-medium leading-[14px] text-[#64748b]">{formatTimeframe(tab.timeframe)}</span>
-                            <span className="sr-only">
-                                {tab.status === TAB_STATUS.LOADING ? ", sedang dianalisis" : tab.status === TAB_STATUS.ERROR ? ", gagal" : `, bias ${biasTone(tab.signal?.bias).word}`}
-                            </span>
-                        </button>
-                        <button
-                            type="button"
-                            tabIndex={-1}
-                            onClick={() => onRemove(tab.key)}
-                            aria-label={`Tutup hasil ${label} ${formatTimeframe(tab.timeframe)}`}
-                            title="Tutup tab (Delete)"
-                            className="mr-1.5 grid size-5 place-items-center rounded text-[#64748b] opacity-60 transition hover:bg-white/[0.06] hover:text-[#f8fafc] group-hover:opacity-100"
-                        >
-                            <X size={12} aria-hidden />
-                        </button>
-                    </div>
-                );
-            })}
+                            <button
+                                type="button"
+                                role="tab"
+                                data-key={tab.key}
+                                aria-selected={selected}
+                                aria-controls={panelId}
+                                tabIndex={selected ? 0 : -1}
+                                onClick={() => onSelect(tab.key)}
+                                onKeyDown={(event) => handleKeyDown(event, index)}
+                                className={`flex h-full items-center gap-2 rounded-[10px] py-[7px] pl-2.5 pr-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8fb5c] ${selected ? "text-[#f8fafc]" : "text-[#94a3b8] hover:text-[#f8fafc]"}`}
+                            >
+                                <span className={`size-1.5 rounded-full ${tabDotClass(tab)}`} aria-hidden />
+                                <span className="font-chakra text-[13px] font-semibold leading-[17px]">{label}</span>
+                                <span className="font-mono text-[11px] font-medium leading-[14px] text-[#64748b]">{formatTimeframe(tab.timeframe)}</span>
+                                <span className="sr-only">
+                                    {tab.status === TAB_STATUS.LOADING ? ", sedang dianalisis" : tab.status === TAB_STATUS.ERROR ? ", gagal" : `, bias ${biasTone(tab.signal?.bias).word}`}
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                tabIndex={-1}
+                                onClick={() => onRemove(tab.key)}
+                                aria-label={`Tutup hasil ${label} ${formatTimeframe(tab.timeframe)}`}
+                                title="Tutup tab (Delete)"
+                                className="mr-1.5 grid size-5 place-items-center rounded text-[#64748b] opacity-60 transition hover:bg-white/[0.06] hover:text-[#f8fafc] group-hover:opacity-100"
+                            >
+                                <X size={12} aria-hidden />
+                            </button>
+                        </div>
+                    );
+                })}
+            </div>
+            <ScrollRail scrollerRef={listRef} />
         </div>
     );
 }

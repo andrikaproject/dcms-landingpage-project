@@ -301,6 +301,32 @@ body {
   }
 }
 
+/* Tepi pudar baris geser (ScrollRail): lebar pudar --edge-l/r (horizontal) dan --edge-t/b (vertikal) didaftarkan
+   supaya transisinya halus. Tanpa @property tepi tetap muncul, hanya langsung. */
+@property --edge-l {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --edge-r {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --edge-t {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --edge-b {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 /* Menu dan popover: dari scale .97 + pudar, 150ms, berasal dari pemicunya
    (pasangkan dengan origin-top-left/right). Modal tidak membesar: naik 16px
    dengan blur 4px, 240ms. */

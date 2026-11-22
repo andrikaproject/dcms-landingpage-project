@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api/client";
 import SignalEventTimeline from "./signals/pending/SignalEventTimeline";
 
@@ -271,10 +271,10 @@ function ArrowDownMiniIcon() {
     );
 }
 
-function ChevronDownIcon() {
+function ChevronDownIcon({ className = "" }) {
     return (
         <svg
-            className="size-5"
+            className={`size-5 ${className}`}
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -415,12 +415,71 @@ function SignalDetailTopHeader({ signal, onClose }) {
     );
 }
 
-function DetailSectionHeader({ children }) {
+// Pilihan buka/tutup diingat per section, jadi sinyal berikutnya terbuka dengan
+// susunan yang sama. Storage yang ditolak browser cukup diabaikan.
+const SECTION_STORAGE_KEY = "dcms:signal-detail:collapsed";
+
+function readCollapsed() {
+    try {
+        const parsed = JSON.parse(window.localStorage.getItem(SECTION_STORAGE_KEY) || "[]");
+        return new Set(Array.isArray(parsed) ? parsed : []);
+    } catch {
+        return new Set();
+    }
+}
+
+function writeCollapsed(id, collapsed) {
+    try {
+        const set = readCollapsed();
+        if (collapsed) set.add(id);
+        else set.delete(id);
+        window.localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify([...set]));
+    } catch {
+        // Mode privat atau storage penuh: pilihan hanya berlaku sampai sideout ditutup.
+    }
+}
+
+// Section yang bisa dibuka-tutup. Seluruh baris judul adalah tombolnya; isi
+// dilipat lewat grid-template-rows supaya tingginya mengikuti konten. Saat
+// terbuka penuh overflow dilepas agar penanda yang keluar batas tidak terpotong.
+function DetailSection({ id, title, className = "mt-8", children }) {
+    const contentId = useId();
+    const [open, setOpen] = useState(() => !readCollapsed().has(id));
+    const [settled, setSettled] = useState(true);
+
+    function toggle() {
+        const next = !open;
+        setOpen(next);
+        setSettled(false);
+        writeCollapsed(id, !next);
+    }
+
     return (
-        <div className="flex items-center justify-between gap-3">
-            <h3 className="font-chakra text-sm font-bold text-white">{children}</h3>
-            <ChevronDownIcon />
-        </div>
+        <section className={className}>
+            <h3>
+                <button
+                    type="button"
+                    data-press="surface"
+                    aria-expanded={open}
+                    aria-controls={contentId}
+                    onClick={toggle}
+                    className="-mx-2 -my-2 flex min-h-9 w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-md px-2 text-left font-chakra text-sm font-bold text-white hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-[#b8fb5c] pointer-coarse:-my-3 pointer-coarse:min-h-11"
+                >
+                    {title}
+                    <ChevronDownIcon className={`shrink-0 text-zinc-400 transition-transform duration-200 ease-[var(--ease-out)] motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
+                </button>
+            </h3>
+            <div
+                id={contentId}
+                inert={!open}
+                onTransitionEnd={(event) => {
+                    if (event.target === event.currentTarget && event.propertyName === "grid-template-rows") setSettled(true);
+                }}
+                className={`grid transition-[grid-template-rows,opacity] duration-200 ease-[var(--ease-out)] motion-reduce:transition-none ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+            >
+                <div className={`min-h-0 ${open && settled ? "" : "overflow-hidden"}`}>{children}</div>
+            </div>
+        </section>
     );
 }
 
@@ -764,8 +823,7 @@ function EntryZoneDetailSection({ entryZone, currentPrice }) {
     const pricePct = getRangePercent(price, rangeMin, rangeMax);
 
     return (
-        <section className="mt-8">
-            <DetailSectionHeader>Entry Zone</DetailSectionHeader>
+        <DetailSection id="entry-zone" title="Entry Zone">
             <div className="mt-4 space-y-4">
                 <span className={`inline-flex items-center rounded-full border px-3 py-0.5 font-chakra text-xs font-bold uppercase ${style.className}`}>
                     {style.label}
@@ -800,14 +858,13 @@ function EntryZoneDetailSection({ entryZone, currentPrice }) {
                     </div>
                 </div>
             </div>
-        </section>
+        </DetailSection>
     );
 }
 
 function PartialTpPlanDetailSection({ plan }) {
     return (
-        <section className="mt-8">
-            <DetailSectionHeader>Partial TP Plan</DetailSectionHeader>
+        <DetailSection id="partial-tp" title="Partial TP Plan">
 
             {plan.warning === "SL_TOO_CLOSE" && (
                 <div className="mt-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2">
@@ -843,7 +900,7 @@ function PartialTpPlanDetailSection({ plan }) {
                     {" "}— aktif setelah TP1 tercapai
                 </p>
             </div>
-        </section>
+        </DetailSection>
     );
 }
 
@@ -1157,18 +1214,16 @@ export default function SignalDetailSideout({ signal, onClose }) {
                             </section>
                         )}
 
-                        <section className="mt-8">
-                            <DetailSectionHeader>Decision Summary</DetailSectionHeader>
+                        <DetailSection id="decision-summary" title="Decision Summary">
                             <div className="mt-4 grid grid-cols-2 gap-2">
                                 <DecisionItem label="Direct Action" value={decision.directAction} />
                                 <DecisionItem label="Trigger Needed" value={decision.triggerNeeded} />
                                 <DecisionItem label="Confidence" value={decision.confidence} />
                                 <DecisionItem label="Main Conflict" value={decision.mainConflict} />
                             </div>
-                        </section>
+                        </DetailSection>
 
-                        <section className="mt-8">
-                            <DetailSectionHeader>Conditional Trade Plan</DetailSectionHeader>
+                        <DetailSection id="trade-plan" title="Conditional Trade Plan">
                             {tradePlanAvailable ? <>
                                 <div className="mt-3">
                                     <TradePlanRow
@@ -1195,7 +1250,7 @@ export default function SignalDetailSideout({ signal, onClose }) {
                                     <NoTradeSetup detail />
                                 </div>
                             )}
-                        </section>
+                        </DetailSection>
 
                         {signal.poc && (
                             <VpvrDetailSection signal={signal} />
