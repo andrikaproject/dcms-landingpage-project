@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import AnimatedDashboardIcon from "@/components/AnimatedDashboardIcon";
 import { AuthGuard, useAuth } from "@/components/auth/AuthProvider";
 import LogoutButton from "@/components/auth/LogoutButton";
+import { GLASS_LENS, GLASS_SURFACE } from "@/components/glassSurface";
 import {
     House,
     ArrowsLeftRight,
@@ -202,40 +203,54 @@ function DashboardHeader({ collapsed, onToggle, pathname }) {
     );
 }
 
+// Navigasi mobile bergaya tab bar kaca yang melayang (iOS 26, seperti BitChord):
+// kapsul tab dengan pil penanda yang bergeser ke tab aktif, plus satu tombol
+// bulat terpisah (logout) setinggi kapsul. Kaca hanya dipakai di sini sebagai
+// satu-satunya permukaan yang melayang di atas konten (lihat glassSurface.js).
 function MobileNav({ logoutSlot, pathname, user }) {
     const items = navItemsFor(user);
+    const activeIndex = items.findIndex((item) => isNavActive(pathname, item.href));
     return (
-        <nav aria-label="Menu utama" className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0A0D12]/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
-            <div className={`mx-auto grid max-w-md gap-1 ${items.length > NAV_ITEMS.length ? "grid-cols-6" : "grid-cols-5"}`}>
-                {items.map((item) => {
-                    const active = isNavActive(pathname, item.href);
-                    const ItemIcon = item.Icon;
-                    return (
-                        <Link
-                            key={item.label}
-                            href={item.href}
-                            className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold leading-none transition ${active
-                                ? "border border-white/10 bg-gradient-to-r from-white/40 to-transparent text-white"
-                                : "text-[#9A9A9A] hover:bg-white/[0.03] hover:text-white"
-                                }`}
-                        >
-                            {item.animated ? (
-                                <AnimatedDashboardIcon
-                                    size={18}
-                                    fallbackWeight={active ? "bold" : "regular"}
+        <>
+            <nav aria-label="Menu utama" className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] min-[400px]:px-4 lg:hidden">
+                <div className="mx-auto flex max-w-md items-center gap-2">
+                    <div className={`min-w-0 flex-1 rounded-full p-1 ${GLASS_SURFACE}`}>
+                        <ul className="relative flex">
+                            {activeIndex >= 0 && (
+                                // Pil penanda: satu elemen yang digeser, bukan latar per tab.
+                                <li
+                                    aria-hidden
+                                    className={`absolute inset-y-0 left-0 rounded-full ${GLASS_LENS} transition-transform duration-300 ease-[var(--ease-out)] motion-reduce:transition-none`}
+                                    style={{ width: `${100 / items.length}%`, transform: `translateX(${activeIndex * 100}%)` }}
                                 />
-                            ) : (
-                                <ItemIcon size={18} weight={active ? "bold" : "regular"} aria-hidden />
                             )}
-                            <span className="max-w-full truncate">{item.short || item.label.split(" ")[0]}</span>
-                        </Link>
-                    );
-                })}
-                <div className="grid min-h-12 place-items-center">
+                            {items.map((item, index) => {
+                                const active = index === activeIndex;
+                                const ItemIcon = item.Icon;
+                                return (
+                                    <li key={item.label} className="relative min-w-0 flex-1">
+                                        <Link
+                                            href={item.href}
+                                            aria-current={active ? "page" : undefined}
+                                            data-press="surface"
+                                            className={`flex h-12 flex-col items-center justify-center gap-1 rounded-full px-0 font-chakra text-[10px] font-semibold leading-none tracking-[-0.01em] transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#b8fb5c] ${active ? "text-white" : "text-[#cbd5e1] hover:text-white"}`}
+                                        >
+                                            {item.animated ? (
+                                                <AnimatedDashboardIcon size={20} fallbackWeight={active ? "fill" : "regular"} />
+                                            ) : (
+                                                <ItemIcon size={20} weight={active ? "fill" : "regular"} aria-hidden />
+                                            )}
+                                            <span className="max-w-full truncate">{item.short || item.label.split(" ")[0]}</span>
+                                        </Link>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
                     {logoutSlot}
                 </div>
-            </div>
-        </nav>
+            </nav>
+        </>
     );
 }
 
@@ -245,6 +260,7 @@ export default function DashboardShell({ user, logoutSlot, children }) {
     const auth = useAuth();
     const resolvedUser = user || auth.user || { name: "Member", email: "", role: "USER" };
     const resolvedLogoutSlot = logoutSlot || <LogoutButton compact />;
+    const mobileLogoutSlot = logoutSlot || <LogoutButton variant="nav" />;
 
     const sidebarWidth = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
 
@@ -269,7 +285,7 @@ export default function DashboardShell({ user, logoutSlot, children }) {
                 logoutSlot={resolvedLogoutSlot}
                 pathname={pathname}
             />
-            <div className="min-h-dvh bg-[#0b0d0f] pb-24 transition-[padding-left] duration-300 ease-out lg:pb-0 lg:pl-[var(--sidebar-width)]">
+            <div className="min-h-dvh bg-[#0b0d0f] pb-[calc(96px+env(safe-area-inset-bottom))] transition-[padding-left] duration-300 ease-out lg:pb-0 lg:pl-[var(--sidebar-width)]">
                 <DashboardHeader
                     collapsed={collapsed}
                     onToggle={() => setCollapsed((current) => !current)}
@@ -279,7 +295,7 @@ export default function DashboardShell({ user, logoutSlot, children }) {
                     {children}
                 </main>
             </div>
-            <MobileNav logoutSlot={resolvedLogoutSlot} pathname={pathname} user={resolvedUser} />
+            <MobileNav logoutSlot={mobileLogoutSlot} pathname={pathname} user={resolvedUser} />
         </div>
         </AuthGuard>
     );
