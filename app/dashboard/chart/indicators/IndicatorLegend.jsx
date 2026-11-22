@@ -95,7 +95,7 @@ export default function IndicatorLegend({ indicator, index, isPane, isNew, onAct
             {status && <span className={indicator.status === "error" ? "text-[#f87171]" : "text-[#b8fb5c]"}>{status}</span>}
             {indicator.visible && values.map((entry) => (
                 <span key={entry.id} style={{ color: entry.color || "#cbd5e1" }}>
-                    {entry.value === null || entry.value === undefined ? "—" : formatPrice(entry.value)}
+                    {entry.value === null || entry.value === undefined ? "–" : formatPrice(entry.value)}
                 </span>
             ))}
             {isNew && <span className="rounded bg-[#b8fb5c]/15 px-1.5 font-mono text-[9px] font-semibold tracking-[0.08em] text-[#b8fb5c]">PANEL BARU</span>}

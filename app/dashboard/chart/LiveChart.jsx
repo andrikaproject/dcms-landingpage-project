@@ -11,6 +11,7 @@ import {
     LineStyle,
     TickMarkType,
 } from "lightweight-charts";
+import { CaretDown, CaretUp, Check, Copy, EyeSlash } from "@phosphor-icons/react";
 import { distanceFromPrice, emaSeries } from "@/lib/market/chart-levels";
 import { formatPercent, formatPrice } from "../overview/ui";
 import { TimeMarkerPrimitive, ZoneBandPrimitive } from "./primitives";
@@ -22,6 +23,14 @@ const DOWN = "#f87171";
 const EMA_FAST_COLOR = "#60a5fa";
 const EMA_SLOW_COLOR = "#c084fc";
 const HOVER_TOLERANCE_PX = 6;
+// Popover level: lebar tetap supaya posisinya bisa dijepit di dalam chart, jeda
+// tutup supaya kursor sempat menyeberang dari garis ke tombol, dan jeda pindah
+// supaya garis lain yang dilewati di jalan tidak merebut popover.
+const POPOVER_WIDTH = 264;
+const POPOVER_HEIGHT = 128;
+const CLOSE_DELAY_MS = 500;
+const SWITCH_DELAY_MS = 180;
+const COPY_REVERT_MS = 1600;
 const INITIAL_VISIBLE_BARS = 150;
 const PANE_SEPARATOR_PX = 1;
 
@@ -48,7 +57,7 @@ function formatCrosshairTime(time) {
 
 function formatVolume(value) {
     const number = Number(value);
-    if (!Number.isFinite(number)) return "—";
+    if (!Number.isFinite(number)) return "–";
     if (number >= 1e9) return `${(number / 1e9).toFixed(2)}B`;
     if (number >= 1e6) return `${(number / 1e6).toFixed(2)}M`;
     if (number >= 1e3) return `${(number / 1e3).toFixed(1)}K`;
@@ -70,7 +79,7 @@ function Legend({ pair, timeframe, candle, ema21, ema50, volume, showEma21, show
     );
 
     return (
-        <div className="pointer-events-none absolute left-3.5 top-3 z-10 flex flex-col gap-1 font-mono text-[11px] leading-[14px]">
+        <div className="pointer-events-none absolute left-3.5 top-3 z-10 flex max-w-[calc(100%-96px)] flex-col items-start gap-1 font-mono text-[11px] leading-[14px]">
             <div className="flex flex-wrap items-center gap-x-2.5">
                 <span className="font-chakra text-xs font-semibold text-[#f8fafc]">{pair} · {timeframe}</span>
                 {item("O", candle.open)}
@@ -85,6 +94,35 @@ function Legend({ pair, timeframe, candle, ema21, ema50, volume, showEma21, show
             </div>
             {children}
         </div>
+    );
+}
+
+// Legend indikator overlay menumpuk di atas candle, jadi hanya beberapa baris
+// pertama yang tampil; sisanya diringkas ke satu tombol yang bisa dibuka.
+const LEGEND_VISIBLE = 2;
+
+function OverlayLegendList({ indicators, index, onAction }) {
+    const [expanded, setExpanded] = useState(false);
+    if (!indicators.length) return null;
+    const hiddenCount = Math.max(0, indicators.length - LEGEND_VISIBLE);
+    const shown = expanded || hiddenCount === 0 ? indicators : indicators.slice(0, LEGEND_VISIBLE);
+    return (
+        <>
+            {shown.map((indicator) => (
+                <IndicatorLegend key={indicator.uid} indicator={indicator} index={index} isPane={false} onAction={onAction} />
+            ))}
+            {hiddenCount > 0 && (
+                <button
+                    type="button"
+                    onClick={() => setExpanded((value) => !value)}
+                    aria-expanded={expanded}
+                    className="pointer-events-auto inline-flex h-6 w-fit items-center gap-1 rounded-md bg-[#161a1e]/90 px-2 font-chakra text-[11px] font-semibold text-[#cbd5e1] shadow-[var(--shadow-button)] hover:text-[#f8fafc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#b8fb5c]"
+                >
+                    {expanded ? <CaretUp size={11} weight="bold" aria-hidden /> : <CaretDown size={11} weight="bold" aria-hidden />}
+                    {expanded ? "Ringkas legend" : `+${hiddenCount} indikator lain`}
+                </button>
+            )}
+        </>
     );
 }
 
@@ -114,8 +152,14 @@ export default function LiveChart({
     const apiRef = useRef(null);
     const priceLinesRef = useRef([]);
     const hoverTimerRef = useRef(null);
+    const switchTimerRef = useRef(null);
+    const copyTimerRef = useRef(null);
+    const insidePopoverRef = useRef(false);
+    // Level yang ditutup dengan Escape tidak dibuka lagi sampai kursor meninggalkan garisnya.
+    const dismissedKeyRef = useRef(null);
     const [crosshair, setCrosshair] = useState(null);
     const [hover, setHover] = useState(null);
+    const [copyState, setCopyState] = useState(null);
     const layersRef = useRef([]);
     const [paneTops, setPaneTops] = useState([]);
     const [offscreen, setOffscreen] = useState({ above: [], below: [] });
@@ -182,12 +226,37 @@ export default function LiveChart({
                 .filter((entry) => entry.y !== null && Math.abs(entry.y - y) <= HOVER_TOLERANCE_PX)
                 .sort((a, b) => Math.abs(a.y - y) - Math.abs(b.y - y))[0];
 
+            // Kursor di dalam popover tidak memicu event chart; penjagaan ini untuk
+            // event terakhir yang masih tiba saat kursor baru masuk.
+            if (insidePopoverRef.current) return;
             window.clearTimeout(hoverTimerRef.current);
-            if (near) {
-                setHover({ key: near.level.key, x: param.point.x, y: near.y });
-            } else {
-                hoverTimerRef.current = window.setTimeout(() => setHover(null), 400);
+            if (!near || near.level.key !== dismissedKeyRef.current) dismissedKeyRef.current = null;
+            if (near && near.level.key === dismissedKeyRef.current) return;
+            if (!near) {
+                window.clearTimeout(switchTimerRef.current);
+                hoverTimerRef.current = window.setTimeout(() => setHover(null), CLOSE_DELAY_MS);
+                return;
             }
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            const open = (current) => ({
+                key: near.level.key,
+                // Posisi dikunci saat popover dibuka; hanya y yang mengikuti garis.
+                x: Math.min(Math.max(8, param.point.x - 24), Math.max(8, width - POPOVER_WIDTH - 8)),
+                y: near.y,
+                above: near.y + POPOVER_HEIGHT + 16 > height,
+                ...(current && current.key === near.level.key ? { x: current.x, above: current.above } : {}),
+            });
+            setHover((current) => {
+                if (!current || current.key === near.level.key) {
+                    window.clearTimeout(switchTimerRef.current);
+                    return open(current);
+                }
+                // Garis lain: pindah hanya bila kursor bertahan di sana sebentar.
+                window.clearTimeout(switchTimerRef.current);
+                switchTimerRef.current = window.setTimeout(() => setHover(open(null)), SWITCH_DELAY_MS);
+                return current;
+            });
         });
 
         chart.applyOptions({ layout: { panes: { separatorColor: "#232a30", separatorHoverColor: "rgba(184, 251, 92, 0.25)", enableResize: true } } });
@@ -195,6 +264,8 @@ export default function LiveChart({
         apiRef.current = { chart, candleSeries, volumeSeries, emaFastSeries, emaSlowSeries, zone, marker, markers, fontFamily };
         return () => {
             window.clearTimeout(hoverTimerRef.current);
+            window.clearTimeout(switchTimerRef.current);
+            window.clearTimeout(copyTimerRef.current);
             layersRef.current = [];
             chart.remove();
             apiRef.current = null;
@@ -342,10 +413,43 @@ export default function LiveChart({
         volume: volume[lastIndex]?.value,
     } : null);
     const hoveredLevel = hover ? visibleLevels.find((level) => level.key === hover.key) : null;
-    // Masuk ke tooltip membatalkan timer penutup, jadi tombol Salin/Sembunyikan
-    // tetap bisa dijangkau setelah kursor meninggalkan garis.
     const showTooltip = Boolean(hoveredLevel);
+    const copied = copyState && hover && copyState.key === hover.key ? copyState.status : null;
+
+    function closePopover() {
+        insidePopoverRef.current = false;
+        window.clearTimeout(hoverTimerRef.current);
+        window.clearTimeout(switchTimerRef.current);
+        setHover(null);
+    }
+
+    // Tanda centang muncul saat diklik, sebelum clipboard menjawab; bila ditolak
+    // berganti jadi "Gagal". Tidak ada toast untuk salin.
+    function copyLevel(level) {
+        window.clearTimeout(copyTimerRef.current);
+        setCopyState({ key: level.key, status: "done" });
+        const revert = () => {
+            copyTimerRef.current = window.setTimeout(() => setCopyState(null), COPY_REVERT_MS);
+        };
+        Promise.resolve()
+            .then(() => onCopyLevel(level))
+            .then(revert, () => {
+                setCopyState({ key: level.key, status: "error" });
+                revert();
+            });
+    }
     const hoveredDistance = hoveredLevel ? distanceFromPrice(hoveredLevel.price, currentPrice) : null;
+
+    useEffect(() => {
+        if (!showTooltip) return undefined;
+        function handleKey(event) {
+            if (event.key !== "Escape") return;
+            dismissedKeyRef.current = hover?.key ?? null;
+            closePopover();
+        }
+        document.addEventListener("keydown", handleKey);
+        return () => document.removeEventListener("keydown", handleKey);
+    }, [showTooltip, hover?.key]);
 
     return (
         <div className="relative h-full w-full">
@@ -360,9 +464,7 @@ export default function LiveChart({
                 showEma50={showEma50}
                 showVolume={showVolume}
             >
-                {indicators.filter((indicator) => indicator.overlay).map((indicator) => (
-                    <IndicatorLegend key={indicator.uid} indicator={indicator} index={crosshair?.index} isPane={false} onAction={onIndicatorAction} />
-                ))}
+                <OverlayLegendList indicators={indicators.filter((indicator) => indicator.overlay)} index={crosshair?.index} onAction={onIndicatorAction} />
                 {legendExtra}
             </Legend>
             <div ref={containerRef} className="h-full w-full" />
@@ -392,31 +494,50 @@ export default function LiveChart({
                 </>
             )}
             {showTooltip && (
+                // Pembungkus transparan menjembatani garis dan kartu (padding 8px),
+                // jadi kursor tidak pernah melewati celah yang menutup popover.
                 <div
                     role="dialog"
                     aria-label={`Level ${hoveredLevel.label}`}
-                    onMouseEnter={() => window.clearTimeout(hoverTimerRef.current)}
-                    onMouseLeave={() => setHover(null)}
-                    className="absolute z-20 w-[180px] rounded-lg bg-[#161a1e] px-3 py-2.5 shadow-[var(--shadow-menu)]"
-                    style={{ left: Math.max(8, hover.x - 20), top: hover.y + 10 }}
+                    onMouseEnter={() => {
+                        insidePopoverRef.current = true;
+                        window.clearTimeout(hoverTimerRef.current);
+                        window.clearTimeout(switchTimerRef.current);
+                    }}
+                    onMouseLeave={() => {
+                        insidePopoverRef.current = false;
+                        hoverTimerRef.current = window.setTimeout(() => setHover(null), CLOSE_DELAY_MS);
+                    }}
+                    className={`absolute z-20 ${hover.above ? "pb-2" : "pt-2"}`}
+                    style={hover.above ? { left: hover.x, bottom: `calc(100% - ${hover.y - 4}px)`, width: POPOVER_WIDTH } : { left: hover.x, top: hover.y + 4, width: POPOVER_WIDTH }}
                 >
-                    <p className="font-mono text-xs font-semibold" style={{ color: hoveredLevel.color }}>
-                        {hoveredLevel.label} · {formatPrice(hoveredLevel.price)}
-                    </p>
-                    <p className="mt-1 font-chakra text-xs text-[#cbd5e1]">{formatPercent(hoveredDistance)} dari harga sekarang</p>
-                    <p className="mt-0.5 font-chakra text-[11px] text-[#64748b]">{levelSourceLabel}</p>
-                    <div className="mt-2 flex gap-3 font-chakra text-xs font-semibold text-[#b8fb5c]">
-                        <button type="button" onClick={() => onCopyLevel(hoveredLevel)} className="hover:underline">Salin</button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                onHideLevel(hoveredLevel.key);
-                                setHover(null);
-                            }}
-                            className="hover:underline"
-                        >
-                            Sembunyikan
-                        </button>
+                    <div className="rounded-lg bg-[#161a1e] p-3 shadow-[var(--shadow-menu)]">
+                        <p className="font-mono text-xs font-semibold" style={{ color: hoveredLevel.color }}>
+                            {hoveredLevel.label} · {formatPrice(hoveredLevel.price)}
+                        </p>
+                        <p className="mt-1 font-chakra text-xs text-[#cbd5e1]">{formatPercent(hoveredDistance)} dari harga sekarang</p>
+                        <p className="mt-0.5 font-chakra text-[11px] text-[#94a3b8]">{levelSourceLabel}</p>
+                        <div className="mt-3 grid grid-cols-2 gap-1.5">
+                            <button
+                                type="button"
+                                onClick={() => copyLevel(hoveredLevel)}
+                                className="inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-[#1e252b] px-2.5 font-chakra text-xs font-semibold text-[#f8fafc] shadow-[var(--shadow-button)] hover:bg-[#232a30] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8fb5c] pointer-coarse:h-11"
+                            >
+                                {copied === "done" ? <Check size={14} weight="bold" className="text-[#b8fb5c]" aria-hidden /> : <Copy size={14} aria-hidden />}
+                                {copied === "done" ? "Disalin" : copied === "error" ? "Gagal salin" : "Salin harga"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onHideLevel(hoveredLevel.key);
+                                    closePopover();
+                                }}
+                                className="inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-[#1e252b] px-2.5 font-chakra text-xs font-semibold text-[#f8fafc] shadow-[var(--shadow-button)] hover:bg-[#232a30] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8fb5c] pointer-coarse:h-11"
+                            >
+                                <EyeSlash size={14} aria-hidden />
+                                Sembunyikan
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

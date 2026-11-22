@@ -3,6 +3,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { WarningCircle } from "@phosphor-icons/react";
 
+// Tinggi baris tetap 22px; di layar sentuh teks 16px supaya iOS tidak memperbesar
+// halaman saat textarea difokus (field di bawah 16px memicu zoom).
 const LINE_HEIGHT = 22;
 const PADDING_TOP = 10;
 const PADDING_LEFT = 14;
@@ -155,8 +157,8 @@ export default function CodeEditor({ value, onChange, errors = [], showErrorTool
     const activeItem = completion?.items[completion.active];
 
     return (
-        <div ref={scrollRef} className="relative h-full overflow-auto bg-[#0b0d0f] font-mono text-[13px]" style={{ lineHeight: `${LINE_HEIGHT}px` }}>
-            <span ref={measureRef} className="invisible absolute whitespace-pre font-mono text-[13px]" aria-hidden>MMMMMMMMMM</span>
+        <div ref={scrollRef} className="relative h-full overflow-auto bg-[#0b0d0f] font-mono text-[13px] pointer-coarse:text-[16px]" style={{ lineHeight: `${LINE_HEIGHT}px` }}>
+            <span ref={measureRef} className="invisible absolute whitespace-pre font-mono text-[13px] pointer-coarse:text-[16px]" aria-hidden>MMMMMMMMMM</span>
             <div className="relative flex" style={{ minHeight: contentHeight }}>
                 <div className="sticky left-0 z-10 shrink-0 select-none border-r border-[#1e293b] bg-[#0b0d0f] text-right text-[#475569]" style={{ width: gutterWidth, paddingTop: PADDING_TOP }} aria-hidden>
                     {lines.map((_, index) => (
@@ -178,7 +180,9 @@ export default function CodeEditor({ value, onChange, errors = [], showErrorTool
                             />
                         );
                     })}
-                    <pre className="pointer-events-none relative m-0 whitespace-pre text-[#e2e8f0]" style={{ padding: `${PADDING_TOP}px ${PADDING_LEFT}px` }} aria-hidden>
+                    {/* font-mono wajib di sini: preflight Tailwind memberi <pre> font ui-monospace,
+                        sedangkan textarea di atasnya mewarisi Geist Mono, sehingga kursor meleset. */}
+                    <pre className="pointer-events-none relative m-0 whitespace-pre font-mono text-[#e2e8f0]" style={{ padding: `${PADDING_TOP}px ${PADDING_LEFT}px` }} aria-hidden>
                         {lines.map((line, index) => {
                             const lineNumber = index + 1;
                             const lineErrors = errors.filter((error) => error.line === lineNumber && error.column);

@@ -300,6 +300,7 @@ export default function ChartWorkspace({ symbol, analysisTimeframe, lockedId }) 
     const [chartTimeframe, setChartTimeframe] = useState(analysisTimeframe);
     const [hidden, setHidden] = useState(() => new Set());
     const [menuOpen, setMenuOpen] = useState(false);
+    const indicatorAnchorRef = useRef(null);
     const [dcmsMenuOpen, setDcmsMenuOpen] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [sideTab, setSideTab] = useState("dcms");
@@ -550,17 +551,19 @@ export default function ChartWorkspace({ symbol, analysisTimeframe, lockedId }) 
                         <ToolbarChip active={indicators.ema21} dotColor="#60a5fa" onClick={() => setToggle("ema21")}>EMA 21</ToolbarChip>
                         <ToolbarChip active={indicators.ema50} dotColor="#c084fc" onClick={() => setToggle("ema50")}>EMA 50</ToolbarChip>
                         <ToolbarChip active={indicators.volume} dotColor="#94a3b8" onClick={() => setToggle("volume")}>Volume</ToolbarChip>
-                        <div className="relative">
+                        <div ref={indicatorAnchorRef} className="relative">
                             <button
                                 type="button"
                                 onClick={() => setMenuOpen((value) => !value)}
                                 aria-expanded={menuOpen}
+                                aria-haspopup="dialog"
                                 className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 font-mono text-[11px] font-medium transition ${menuOpen || controller.chartIndicators.length ? "border-[#b8fb5c]/60 bg-[#b8fb5c]/10 text-[#b8fb5c]" : "border-[#232a30] text-[#cbd5e1] hover:text-white"}`}
                             >
                                 <FunctionIcon size={13} aria-hidden /> Indikator
                             </button>
                             {menuOpen && (
                                 <IndicatorMenu
+                                    anchorRef={indicatorAnchorRef}
                                     onClose={() => setMenuOpen(false)}
                                     toggles={indicators}
                                     activeKeys={controller.activeKeys}
@@ -627,7 +630,7 @@ export default function ChartWorkspace({ symbol, analysisTimeframe, lockedId }) 
                                 levelSourceLabel={levelSourceLabel}
                                 resetToken={resetToken}
                                 onHideLevel={toggleLevel}
-                                onCopyLevel={(level) => copyText(formatPrice(level.price), `${level.label} ${formatPrice(level.price)} disalin.`)}
+                                onCopyLevel={(level) => navigator.clipboard.writeText(formatPrice(level.price))}
                             />
                         ) : candles.error ? (
                             <div className="grid size-full place-items-center p-6 text-center" role="alert">
